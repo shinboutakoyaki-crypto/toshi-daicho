@@ -2,491 +2,672 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#122B5C">
 <title>投資台帳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#F5F7F6; --card:#FFFFFF; --ink:#1B2723; --sub:#6E7D77;
-    --line:#E4E9E6; --green:#1E6B52; --green-soft:#E7F1ED;
-    --plus:#C2402F; --minus:#2B5FA5; --perk:#B98A2E; --divi:#4A7D68;
+    --bg:#EDF1F7;
+    --card:#FFFFFF;
+    --ink:#1A2433;
+    --sub:#69748A;
+    --line:#E3E9F2;
+    --navy:#122B5C;
+    --navy2:#2456A8;
+    --plus:#D63C3C;   /* 利益=赤(日本式) */
+    --minus:#0E9C6E;  /* 損失=緑(日本式) */
+    --sky:#4E86E4;    /* 配当 */
+    --amber:#E8A13D;  /* 優待 */
+    --radius:18px;
+    --shadow:0 2px 10px rgba(18,43,92,.06);
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{font-size:16px}
   body{
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Noto Sans JP",sans-serif;
+    font-family:'Manrope','Hiragino Kaku Gothic ProN','Hiragino Sans','Noto Sans JP',system-ui,sans-serif;
+    background:var(--bg);color:var(--ink);
+    font-feature-settings:'tnum' 1,'palt' 1;
+    padding-bottom:calc(76px + env(safe-area-inset-bottom));
+    min-height:100vh;
   }
-  .wrap{max-width:560px; margin:0 auto; padding:18px 14px 100px;}
-  header{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;}
-  .logo{font-size:18px; font-weight:800;}
-  .logo span{color:var(--green);}
-  .date{font-size:12px; color:var(--sub);}
-  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:12px;}
-  .eyebrow{font-size:11px; letter-spacing:.12em; color:var(--sub); font-weight:600; margin-bottom:8px;}
-  .num{font-variant-numeric:tabular-nums;}
-  .plus{color:var(--plus);} .minus{color:var(--minus);} .zero{color:var(--sub);}
-  .hero-num{font-size:38px; font-weight:800; letter-spacing:-0.01em;}
-  .band{display:flex; height:8px; border-radius:4px; overflow:hidden; margin:14px 0 10px;}
-  .chips{display:flex; gap:8px; margin-top:12px;}
-  .chip{flex:1; background:#FAFBFA; border:1px solid var(--line); border-radius:10px; padding:8px 10px;}
-  .chip .t{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--sub); font-weight:600;}
-  .chip .dot{width:8px; height:8px; border-radius:2px; display:inline-block;}
-  .chip .v{font-size:14px; font-weight:700; margin-top:2px;}
-  .row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);}
-  .row:last-child{border-bottom:none;}
-  .tag{font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; flex-shrink:0;}
-  .row .mid{flex:1; min-width:0;}
-  .row .name{font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .row .meta{font-size:12px; color:var(--sub);}
-  .row .amt{font-size:15px; font-weight:700;}
-  .del{border:none; background:none; color:var(--sub); font-size:18px; padding:4px 6px; cursor:pointer;}
-  .empty{color:var(--sub); font-size:14px; text-align:center; padding:16px 0; line-height:1.8;}
-  /* グラフ */
-  .chart{position:relative; height:170px; display:flex; align-items:stretch; gap:3px; margin-top:10px;}
-  .col{flex:1; display:flex; flex-direction:column; position:relative; cursor:pointer;}
-  .col .up{flex:1; display:flex; align-items:flex-end;}
-  .col .down{flex:1; display:flex; align-items:flex-start;}
-  .col .bar{width:100%; border-radius:3px 3px 0 0;}
-  .col .bar.neg{border-radius:0 0 3px 3px;}
-  .zeroline{position:absolute; left:0; right:0; height:1px; background:var(--line);}
-  .xlabels{display:flex; gap:3px; margin-top:4px;}
-  .xlabels div{flex:1; text-align:center; font-size:9px; color:var(--sub);}
-  .chart-detail{font-size:13px; color:var(--sub); margin-top:8px; min-height:1.4em;}
-  /* フォーム */
-  label.f{display:block; margin-bottom:12px;}
-  label.f .l{font-size:12px; color:var(--sub); font-weight:600; margin-bottom:4px;}
-  input,select{
-    width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
-    font-size:16px; font-family:inherit; background:#FBFCFB; color:var(--ink); outline:none;
+  header.app{
+    padding:calc(14px + env(safe-area-inset-top)) 20px 10px;
+    display:flex;align-items:baseline;gap:8px;
   }
-  select.small{width:auto; padding:4px 8px; font-size:13px;}
-  .btn{
-    display:block; width:100%; padding:12px 16px; border:none; border-radius:12px;
-    font-size:15px; font-weight:700; font-family:inherit; cursor:pointer;
-    background:var(--green); color:#fff;
+  header.app h1{font-size:1.05rem;font-weight:800;letter-spacing:.06em;color:var(--navy)}
+  header.app .date{font-size:.72rem;color:var(--sub);font-weight:600}
+
+  main{padding:0 14px;max-width:560px;margin:0 auto}
+  .view{display:none}
+  .view.active{display:block;animation:fade .18s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ===== hero ===== */
+  .hero{
+    position:relative;overflow:hidden;
+    background:linear-gradient(150deg,#122B5C 0%,#1D4187 70%,#2456A8 100%);
+    color:#fff;border-radius:22px;padding:22px 20px 20px;
+    box-shadow:0 8px 24px rgba(18,43,92,.28);
+    margin-bottom:14px;
   }
-  .btn.ghost{background:var(--green-soft); color:var(--green);}
-  .btn.danger{background:#FBEDEA; color:var(--plus);}
-  .btn:disabled{opacity:.4;}
-  .btnrow{display:flex; gap:10px;}
-  .btnrow .btn{width:auto; flex:1;}
-  .seg{display:flex; gap:8px; margin-bottom:14px;}
+  .hero svg.gl{position:absolute;right:-40px;top:-60px;opacity:.16;pointer-events:none}
+  .hero .label{font-size:.72rem;font-weight:700;letter-spacing:.12em;color:#B9C9E8}
+  .hero .big{font-size:2.15rem;font-weight:800;letter-spacing:.01em;margin:4px 0 2px}
+  .hero .big .yen{font-size:1.25rem;margin-right:2px;font-weight:700}
+  .hero .cost{font-size:.78rem;color:#B9C9E8;font-weight:600}
+  .hero .chip{
+    display:inline-flex;align-items:center;gap:5px;margin-top:12px;
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+    border-radius:999px;padding:6px 12px;font-size:.82rem;font-weight:800;
+  }
+  .chip .pct{font-size:.72rem;font-weight:700;opacity:.85}
+  .chip.up{color:#FFB3B3}.chip.down{color:#9FE8CF}
+
+  /* ===== cards ===== */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  .card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+  .card .t{font-size:.72rem;font-weight:700;color:var(--sub);letter-spacing:.04em}
+  .card .v{font-size:1.18rem;font-weight:800;margin-top:5px;line-height:1.2}
+  .card .s{font-size:.7rem;color:var(--sub);margin-top:4px;font-weight:600}
+  .pl-plus{color:var(--plus)} .pl-minus{color:var(--minus)} .pl-zero{color:var(--ink)}
+  .wide{grid-column:1/-1}
+  .sec{margin-bottom:14px}
+  .sec h2{font-size:.82rem;font-weight:800;color:var(--navy);letter-spacing:.06em;margin:2px 4px 8px}
+
+  /* ===== donut ===== */
+  .donut-wrap{display:flex;align-items:center;gap:14px}
+  .donut-wrap svg{flex:none}
+  .legend{flex:1;display:flex;flex-direction:column;gap:9px;min-width:0}
+  .legend .row{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700}
+  .legend .dot{width:10px;height:10px;border-radius:3px;flex:none}
+  .legend .name{color:var(--sub);flex:1}
+  .legend .amt{font-weight:800}
+  .donut-center{font-size:.62rem;fill:var(--sub);font-weight:700}
+  .donut-total{font-size:.95rem;fill:var(--ink);font-weight:800}
+
+  /* ===== bar chart ===== */
+  .chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  select.year{
+    border:1px solid var(--line);background:#F6F8FC;border-radius:10px;
+    padding:6px 10px;font-size:.8rem;font-weight:700;color:var(--navy);font-family:inherit;
+  }
+  .bars{width:100%;height:150px}
+  .bar-lab{font-size:9px;fill:var(--sub);font-weight:600}
+  .bar-val{font-size:8.5px;fill:var(--navy);font-weight:700}
+
+  /* ===== list ===== */
+  .item{
+    background:var(--card);border-radius:16px;box-shadow:var(--shadow);
+    padding:13px 14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;
+  }
+  .item .ic{
+    width:38px;height:38px;border-radius:12px;flex:none;
+    display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;color:#fff;
+  }
+  .ic.sell{background:var(--navy)} .ic.div{background:var(--sky)} .ic.perk{background:var(--amber)}
+  .item .mid{flex:1;min-width:0}
+  .item .nm{font-size:.88rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item .dt{font-size:.7rem;color:var(--sub);font-weight:600;margin-top:2px}
+  .item .amt{font-size:.95rem;font-weight:800;text-align:right}
+  .item .sub-amt{font-size:.68rem;color:var(--sub);font-weight:600;text-align:right;margin-top:2px}
+  .empty{
+    text-align:center;color:var(--sub);font-size:.82rem;font-weight:600;
+    padding:36px 16px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow)
+  }
+  .empty b{display:block;color:var(--navy);font-size:.92rem;margin-bottom:6px}
+
+  /* filter chips */
+  .chips{display:flex;gap:8px;margin:2px 2px 12px;overflow-x:auto}
+  .fchip{
+    border:1px solid var(--line);background:var(--card);border-radius:999px;
+    padding:7px 14px;font-size:.78rem;font-weight:700;color:var(--sub);white-space:nowrap;font-family:inherit;
+  }
+  .fchip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+
+  /* ===== forms ===== */
+  .seg{display:flex;background:#E4EAF4;border-radius:12px;padding:4px;margin-bottom:14px}
   .seg button{
-    flex:1; padding:10px 0; border-radius:10px; font-size:14px; font-weight:700;
-    font-family:inherit; border:1.5px solid var(--line); background:#FBFCFB; color:var(--sub); cursor:pointer;
+    flex:1;border:0;background:transparent;border-radius:9px;padding:9px 4px;
+    font-size:.8rem;font-weight:800;color:var(--sub);font-family:inherit;
   }
-  .hint{font-size:12px; color:var(--sub); background:#FAFBFA; border:1px solid var(--line);
-    border-radius:10px; padding:8px 10px; margin-bottom:14px; line-height:1.6;}
-  .toast{text-align:center; color:var(--green); font-weight:700; font-size:13px; margin-top:10px; min-height:1.2em;}
-  .banner{background:#FFF6E5; color:#8a6a1f; border:1px solid #F0E2BF; border-radius:10px;
-    padding:10px 12px; font-size:13px; line-height:1.7; margin-bottom:12px; display:none;}
-  /* 保有株 */
-  .h-head{display:flex; justify-content:space-between; align-items:baseline;}
-  .h-name{font-size:16px; font-weight:700;}
-  .h-code{font-size:12px; color:var(--sub); margin-left:6px; font-weight:400;}
-  .h-edit{border:1px solid var(--line); background:#FBFCFB; border-radius:8px; font-size:12px;
-    padding:4px 10px; color:var(--green); font-weight:700; cursor:pointer; font-family:inherit;}
-  .h-meta{display:flex; gap:14px; margin-top:8px; font-size:13px; color:var(--sub); flex-wrap:wrap;}
-  .h-foot{display:flex; justify-content:space-between; margin-top:10px; padding-top:10px; border-top:1px solid var(--line); align-items:baseline;}
-  .h-upd{font-size:11px; color:var(--sub); margin-top:6px;}
-  .note{font-size:12px; color:var(--sub); text-align:center; margin-top:4px;}
-  /* ナビ */
-  nav{position:fixed; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--line);
-    display:flex; justify-content:center; padding:8px 8px calc(8px + env(safe-area-inset-bottom));}
-  nav .inner{display:flex; width:100%; max-width:560px; gap:6px;}
-  nav button{flex:1; padding:11px 0; border:none; border-radius:12px; font-family:inherit;
-    font-size:13px; font-weight:700; background:transparent; color:var(--sub); cursor:pointer;}
-  nav button.on{background:var(--green-soft); color:var(--green);}
-  .filters{display:flex; gap:8px; margin-bottom:12px;}
-  .filters button{flex:1; padding:8px 0; border-radius:10px; font-size:13px; font-weight:700;
-    font-family:inherit; border:1px solid var(--line); background:var(--card); color:var(--sub); cursor:pointer;}
-  .filters button.on{border-color:var(--green); background:var(--green-soft); color:var(--green);}
-  .backup-note{font-size:12px; color:var(--sub); line-height:1.7; margin-top:8px;}
+  .seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(18,43,92,.14)}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:.72rem;font-weight:700;color:var(--sub);margin-bottom:5px}
+  .field input,.field textarea{
+    width:100%;border:1.5px solid var(--line);border-radius:12px;background:#fff;
+    padding:12px;font-size:1rem;font-family:inherit;color:var(--ink);
+  }
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--navy2)}
+  .frow{display:flex;gap:10px}.frow .field{flex:1}
+  .btn{
+    width:100%;border:0;border-radius:14px;padding:15px;font-size:.95rem;font-weight:800;
+    font-family:inherit;background:var(--navy);color:#fff;box-shadow:0 4px 12px rgba(18,43,92,.25);
+  }
+  .btn:active{transform:scale(.985)}
+  .btn.ghost{background:#fff;color:var(--plus);box-shadow:var(--shadow);margin-top:10px}
+  .btn.line{background:#fff;color:var(--navy);box-shadow:var(--shadow)}
+  .hint{font-size:.72rem;color:var(--sub);font-weight:600;margin:-6px 0 14px;line-height:1.6}
+
+  /* ===== bottom nav ===== */
+  nav.tabs{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:rgba(255,255,255,.92);backdrop-filter:blur(14px);
+    border-top:1px solid var(--line);
+    display:flex;justify-content:space-around;
+    padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+  }
+  nav.tabs button{
+    flex:1;border:0;background:none;font-family:inherit;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    font-size:.62rem;font-weight:700;color:#9AA6BC;
+  }
+  nav.tabs button svg{width:23px;height:23px;stroke:#9AA6BC;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  nav.tabs button.on{color:var(--navy)}
+  nav.tabs button.on svg{stroke:var(--navy)}
+
+  /* toast */
+  #toast{
+    position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
+    background:var(--navy);color:#fff;font-size:.82rem;font-weight:700;
+    padding:11px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:.25s;z-index:99;
+    box-shadow:0 6px 18px rgba(18,43,92,.35);white-space:nowrap;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="logo"><span>投資</span>台帳</div>
-    <div class="date" id="todayLabel"></div>
-  </header>
-  <div class="banner" id="storageBanner">
-    この開き方ではデータを保存できません。ページを閉じると入力内容が消えます。ホーム画面に追加した公開URLから開くと保存されます。
-  </div>
-  <main id="view"></main>
-</div>
-<nav>
-  <div class="inner">
-    <button data-tab="home" class="on">ホーム</button>
-    <button data-tab="holdings">保有株</button>
-    <button data-tab="add">＋ 追加</button>
-    <button data-tab="history">履歴</button>
-  </div>
+
+<header class="app">
+  <h1>投資台帳</h1>
+  <span class="date" id="todayLabel"></span>
+</header>
+
+<main>
+  <!-- ============ ホーム ============ -->
+  <section class="view active" id="view-home">
+    <div class="hero">
+      <svg class="gl" width="300" height="300" viewBox="0 0 300 300">
+        <g fill="none" stroke="#fff" stroke-width="1">
+          <circle cx="150" cy="150" r="60"/><circle cx="150" cy="150" r="80"/>
+          <circle cx="150" cy="150" r="100"/><circle cx="150" cy="150" r="120"/>
+          <circle cx="150" cy="150" r="140"/>
+        </g>
+      </svg>
+      <div class="label">評価額合計</div>
+      <div class="big" id="heroVal"><span class="yen">¥</span>0</div>
+      <div class="cost" id="heroCost">取得額 ¥0</div>
+      <div class="chip" id="heroChip"><span id="heroPL">±¥0</span><span class="pct" id="heroPct"></span></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card"><div class="t">含み損益</div><div class="v" id="cUnreal">—</div><div class="s" id="cUnrealPct"></div></div>
+      <div class="card"><div class="t">実現損益+配当(税引後)</div><div class="v" id="cRealDiv">—</div><div class="s">売却益+受取配当</div></div>
+      <div class="card"><div class="t">累計配当+優待</div><div class="v" id="cDivPerk">—</div><div class="s" id="cDivPerkSub"></div></div>
+      <div class="card"><div class="t">総合損益</div><div class="v" id="cTotal">—</div><div class="s">含み+実現+配当+優待</div></div>
+    </div>
+
+    <div class="sec">
+      <h2>受取の内訳</h2>
+      <div class="card">
+        <div class="donut-wrap">
+          <svg id="donut" width="120" height="120" viewBox="0 0 120 120"></svg>
+          <div class="legend" id="donutLegend"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>月別の受取推移</h2>
+      <div class="card">
+        <div class="chart-head">
+          <span style="font-size:.72rem;color:var(--sub);font-weight:700">実現損益+配当+優待</span>
+          <select class="year" id="yearSel"></select>
+        </div>
+        <svg class="bars" id="barChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 保有 ============ -->
+  <section class="view" id="view-hold">
+    <div class="sec"><h2>保有銘柄</h2><div id="holdList"></div></div>
+    <button class="btn line" onclick="goAddHolding()">+ 保有銘柄を追加する</button>
+  </section>
+
+  <!-- ============ 履歴 ============ -->
+  <section class="view" id="view-hist">
+    <div class="chips" id="histChips">
+      <button class="fchip on" data-f="all">すべて</button>
+      <button class="fchip" data-f="sell">売却損益</button>
+      <button class="fchip" data-f="div">配当</button>
+      <button class="fchip" data-f="perk">優待</button>
+    </div>
+    <div id="histList"></div>
+  </section>
+
+  <!-- ============ 入力 ============ -->
+  <section class="view" id="view-input">
+    <div class="seg" id="inputModeSeg">
+      <button class="on" data-m="record">取引を記録</button>
+      <button data-m="holding">保有銘柄</button>
+    </div>
+
+    <!-- 取引記録フォーム -->
+    <div id="formRecord">
+      <div class="seg" id="recTypeSeg">
+        <button class="on" data-t="sell">売却損益</button>
+        <button data-t="div">配当</button>
+        <button data-t="perk">優待</button>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div class="field"><label>日付</label><input type="date" id="rDate"></div>
+        <div class="field"><label>銘柄名</label><input type="text" id="rName" placeholder="例:トヨタ自動車"></div>
+        <div class="field"><label>金額(円・税引後)</label><input type="number" id="rAmount" inputmode="numeric" placeholder="例:12500(損失は -5000)"></div>
+        <div class="field" style="margin-bottom:0"><label>メモ(任意)</label><input type="text" id="rMemo" placeholder="例:100株 NISA"></div>
+      </div>
+      <p class="hint">・売却損益は、損失ならマイナスで入力してな(例:-5000)<br>・優待は「金額に換算した価値」を入れてや(例:クオカード1000円分 → 1000)</p>
+      <button class="btn" id="rSave" onclick="saveRecord()">この内容で記録する</button>
+      <button class="btn ghost" id="rDelete" style="display:none" onclick="deleteRecord()">この記録を削除する</button>
+    </div>
+
+    <!-- 保有銘柄フォーム -->
+    <div id="formHolding" style="display:none">
+      <div class="card" style="margin-bottom:14px">
+        <div class="field"><label>銘柄名</label><input type="text" id="hName" placeholder="例:三菱UFJ"></div>
+        <div class="frow">
+          <div class="field"><label>株数</label><input type="number" id="hQty" inputmode="numeric" placeholder="100"></div>
+          <div class="field"><label>取得単価(円)</label><input type="number" id="hBuy" inputmode="decimal" placeholder="1520.5"></div>
+        </div>
+        <div class="field" style="margin-bottom:0"><label>現在株価(円)</label><input type="number" id="hCur" inputmode="decimal" placeholder="1780"></div>
+      </div>
+      <p class="hint">現在株価は自動では取れへんから、たまに証券アプリを見て更新してな。保有一覧からタップすると編集できるで。</p>
+      <button class="btn" id="hSave" onclick="saveHolding()">この内容で保存する</button>
+      <button class="btn ghost" id="hDelete" style="display:none" onclick="deleteHolding()">この銘柄を削除する</button>
+    </div>
+  </section>
+
+  <!-- ============ 設定 ============ -->
+  <section class="view" id="view-set">
+    <div class="sec">
+      <h2>バックアップ</h2>
+      <div class="card" style="margin-bottom:10px">
+        <p style="font-size:.78rem;color:var(--sub);font-weight:600;line-height:1.7;margin-bottom:12px">
+          データはこのスマホのブラウザの中に保存されてるで。機種変更や消えたときに備えて、たまに書き出しておくと安心や。</p>
+        <button class="btn line" onclick="exportData()" style="margin-bottom:10px">データを書き出す(保存)</button>
+        <button class="btn line" onclick="document.getElementById('importFile').click()">データを読み込む(復元)</button>
+        <input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importData(this)">
+      </div>
+    </div>
+    <div class="sec">
+      <h2>データの初期化</h2>
+      <div class="card">
+        <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
+      </div>
+    </div>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v2.0</p>
+  </section>
+</main>
+
+<!-- bottom nav -->
+<nav class="tabs">
+  <button class="on" data-v="home">
+    <svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>ホーム</button>
+  <button data-v="hold">
+    <svg viewBox="0 0 24 24"><path d="M4 19V9m5.3 10V5m5.4 14v-8m5.3 8V8"/></svg>保有</button>
+  <button data-v="input">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>入力</button>
+  <button data-v="hist">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>履歴</button>
+  <button data-v="set">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3m13.8-6.8-1.7 1.7M8.9 15.1l-1.7 1.7m0-9.6 1.7 1.7m6.2 6.2 1.7 1.7"/></svg>設定</button>
 </nav>
 
+<div id="toast"></div>
+
 <script>
-"use strict";
-// ───────── 基本設定 ─────────
-const KEY = "toshi-daicho-v1";
-const TYPE_META = {
-  realized: { label:"売買", color:"var(--green)", raw:"#1E6B52" },
-  dividend: { label:"配当", color:"var(--divi)",  raw:"#4A7D68" },
-  perk:     { label:"優待", color:"var(--perk)",  raw:"#B98A2E" },
-};
-const today = () => new Date().toISOString().slice(0,10);
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const yen = (n, sign=false) => {
-  const v = Math.round(Number(n)||0);
-  const s = Math.abs(v).toLocaleString("ja-JP");
-  if (sign) return (v>0?"+":v<0?"−":"±") + "¥" + s;
-  return (v<0?"−":"") + "¥" + s;
-};
-const pn = (n) => n>0 ? "plus" : n<0 ? "minus" : "zero";
+'use strict';
+/* ================= データ ================= */
+const KEY = 'toshi-daicho-v2';
+let state = { records: [], holdings: [] };
+try {
+  const raw = localStorage.getItem(KEY);
+  if (raw) { const p = JSON.parse(raw); if (p && Array.isArray(p.records) && Array.isArray(p.holdings)) state = p; }
+} catch (e) {}
+function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-// ───────── 保存(localStorage / 使えない環境ではメモリ) ─────────
-let memoryOnly = false;
-let mem = null;
-function loadData(){
-  try{
-    const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw);
-    localStorage.setItem("__test__","1"); localStorage.removeItem("__test__");
-    return { records:[], holdings:[] };
-  }catch(e){
-    memoryOnly = true;
-    document.getElementById("storageBanner").style.display = "block";
-    return mem || { records:[], holdings:[] };
+/* ================= 表示ヘルパー ================= */
+const TYPE_LABEL = { sell: '売却', div: '配当', perk: '優待' };
+const yen = n => '¥' + Math.round(Math.abs(n)).toLocaleString('ja-JP');
+function signYen(n) { return (n > 0 ? '+' : n < 0 ? '-' : '±') + yen(n); }
+function plClass(n) { return n > 0 ? 'pl-plus' : n < 0 ? 'pl-minus' : 'pl-zero'; }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove('show'), 1800);
+}
+function fmtDate(d) { const [y, m, dd] = d.split('-'); return `${y}/${Number(m)}/${Number(dd)}`; }
+
+/* ================= 集計 ================= */
+function calc() {
+  const evalTotal = state.holdings.reduce((s, h) => s + h.qty * h.cur, 0);
+  const costTotal = state.holdings.reduce((s, h) => s + h.qty * h.buy, 0);
+  const unreal = evalTotal - costTotal;
+  const sum = t => state.records.filter(r => r.type === t).reduce((s, r) => s + r.amount, 0);
+  const sell = sum('sell'), div = sum('div'), perk = sum('perk');
+  return { evalTotal, costTotal, unreal, sell, div, perk,
+    realDiv: sell + div, divPerk: div + perk, total: unreal + sell + div + perk };
+}
+
+/* ================= ホーム描画 ================= */
+function renderHome() {
+  const c = calc();
+  document.getElementById('heroVal').innerHTML = '<span class="yen">¥</span>' + Math.round(c.evalTotal).toLocaleString('ja-JP');
+  document.getElementById('heroCost').textContent = '取得額 ' + yen(c.costTotal);
+  const chip = document.getElementById('heroChip');
+  chip.className = 'chip ' + (c.unreal > 0 ? 'up' : c.unreal < 0 ? 'down' : '');
+  document.getElementById('heroPL').textContent = '含み ' + signYen(c.unreal);
+  document.getElementById('heroPct').textContent = c.costTotal ? ((c.unreal >= 0 ? '+' : '') + (c.unreal / c.costTotal * 100).toFixed(2) + '%') : '';
+
+  setCard('cUnreal', c.unreal);
+  document.getElementById('cUnrealPct').textContent = c.costTotal ? ((c.unreal >= 0 ? '+' : '') + (c.unreal / c.costTotal * 100).toFixed(2) + '%') : '保有銘柄を登録してや';
+  setCard('cRealDiv', c.realDiv);
+  const dp = document.getElementById('cDivPerk');
+  dp.textContent = yen(c.divPerk); dp.className = 'v'; dp.style.color = 'var(--amber)';
+  document.getElementById('cDivPerkSub').textContent = `配当 ${yen(c.div)} / 優待 ${yen(c.perk)}`;
+  setCard('cTotal', c.total);
+
+  renderDonut(c);
+  renderYears();
+  renderBars();
+}
+function setCard(id, v) {
+  const el = document.getElementById(id);
+  el.textContent = signYen(v);
+  el.className = 'v ' + plClass(v);
+}
+
+/* ---- ドーナツ ---- */
+function renderDonut(c) {
+  const svg = document.getElementById('donut');
+  const legend = document.getElementById('donutLegend');
+  const parts = [
+    { name: '実現損益', val: Math.max(c.sell, 0), color: 'var(--navy2)' },
+    { name: '配当', val: c.div, color: 'var(--sky)' },
+    { name: '優待', val: c.perk, color: 'var(--amber)' },
+  ];
+  const total = parts.reduce((s, p) => s + p.val, 0);
+  const R = 46, C = 2 * Math.PI * R;
+  let html = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="#EDF1F7" stroke-width="14"/>`;
+  if (total > 0) {
+    let off = 0;
+    parts.forEach(p => {
+      if (p.val <= 0) return;
+      const len = p.val / total * C;
+      html += `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${p.color}" stroke-width="14"
+        stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-off}"
+        transform="rotate(-90 60 60)" stroke-linecap="butt"/>`;
+      off += len;
+    });
   }
-}
-function saveData(d){
-  if (memoryOnly){ mem = d; return; }
-  try{ localStorage.setItem(KEY, JSON.stringify(d)); }
-  catch(e){ alert("保存に失敗しました。空き容量を確認してください。"); }
+  html += `<text x="60" y="55" text-anchor="middle" class="donut-center">受取合計</text>
+           <text x="60" y="72" text-anchor="middle" class="donut-total">${total >= 10000000 ? (total/10000).toFixed(0)+'万' : yen(total)}</text>`;
+  svg.innerHTML = html;
+  legend.innerHTML = parts.map(p =>
+    `<div class="row"><span class="dot" style="background:${p.color}"></span>
+     <span class="name">${p.name}${p.name==='実現損益'&&c.sell<0?'(マイナス)':''}</span>
+     <span class="amt">${p.name==='実現損益' ? signYen(c.sell) : yen(p.val)}</span></div>`).join('');
 }
 
-let data = loadData();
-let tab = "home";
-let editingHolding = null;   // null=一覧 / {}=新規 / holding=編集
-let historyFilter = "all";
-let addType = "realized";
-let chartYear = null;
-let chartDetail = "";
+/* ---- 月別バー ---- */
+let selYear = new Date().getFullYear();
+function renderYears() {
+  const years = [...new Set(state.records.map(r => r.date.slice(0, 4)))].sort().reverse();
+  if (!years.length) years.push(String(new Date().getFullYear()));
+  if (!years.includes(String(selYear))) selYear = Number(years[0]);
+  const sel = document.getElementById('yearSel');
+  sel.innerHTML = years.map(y => `<option value="${y}" ${Number(y)===selYear?'selected':''}>${y}年</option>`).join('');
+}
+document.getElementById('yearSel').addEventListener('change', e => { selYear = Number(e.target.value); renderBars(); });
 
-function commit(){ saveData(data); render(); }
-
-// ───────── 集計 ─────────
-function totals(){
-  const t = { realized:0, dividend:0, perk:0 };
-  data.records.forEach(r => { t[r.type] = (t[r.type]||0) + (Number(r.amount)||0); });
-  return t;
-}
-function unrealized(){
-  return data.holdings.reduce((s,h)=> s + ((Number(h.currentPrice)||0)-(Number(h.avgPrice)||0))*(Number(h.shares)||0), 0);
-}
-function years(){
-  const ys = [...new Set(data.records.map(r => (r.date||"").slice(0,4)).filter(Boolean))].sort().reverse();
-  return ys.length ? ys : [String(new Date().getFullYear())];
-}
-function monthly(year){
-  const arr = Array.from({length:12}, () => 0);
-  data.records.forEach(r => {
-    if ((r.date||"").slice(0,4) === year){
-      const m = parseInt(r.date.slice(5,7),10)-1;
-      if (m>=0 && m<12) arr[m] += Number(r.amount)||0;
-    }
+function renderBars() {
+  const svg = document.getElementById('barChart');
+  const W = 340, H = 150, padB = 18, padT = 14;
+  const months = Array.from({ length: 12 }, () => 0);
+  state.records.forEach(r => {
+    if (Number(r.date.slice(0, 4)) === selYear) months[Number(r.date.slice(5, 7)) - 1] += r.amount;
   });
-  return arr;
+  const maxV = Math.max(...months, 0), minV = Math.min(...months, 0);
+  const range = (maxV - minV) || 1;
+  const zeroY = padT + (maxV / range) * (H - padT - padB);
+  const bw = 17, gap = (W - 20) / 12;
+  let html = `<line x1="8" y1="${zeroY}" x2="${W-8}" y2="${zeroY}" stroke="#E3E9F2" stroke-width="1"/>`;
+  months.forEach((v, i) => {
+    const x = 12 + i * gap + (gap - bw) / 2;
+    const h = Math.abs(v) / range * (H - padT - padB);
+    const y = v >= 0 ? zeroY - h : zeroY;
+    if (v !== 0) {
+      html += `<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h,2)}" rx="4"
+        fill="${v >= 0 ? 'var(--navy2)' : 'var(--minus)'}" opacity="${v>=0?1:.85}"/>`;
+      if (h > 14) {
+        const lab = Math.abs(v) >= 10000 ? Math.round(v/10000) + '万' : Math.round(v/1000) + 'k';
+        html += `<text x="${x+bw/2}" y="${v>=0? y-3 : y+h+9}" text-anchor="middle" class="bar-val">${lab}</text>`;
+      }
+    }
+    html += `<text x="${x+bw/2}" y="${H-4}" text-anchor="middle" class="bar-lab">${i+1}月</text>`;
+  });
+  svg.innerHTML = html;
 }
 
-// ───────── 描画部品 ─────────
-function recordRowHTML(r, deletable){
-  const m = TYPE_META[r.type] || TYPE_META.realized;
-  const a = Number(r.amount)||0;
-  return `<div class="row">
-    <span class="tag" style="color:${m.raw}; background:${m.raw}22">${m.label}</span>
-    <div class="mid">
-      <div class="name">${esc(r.name)||"(名称なし)"}</div>
-      <div class="meta">${esc(r.date)}${r.memo ? " ・ " + esc(r.memo) : ""}</div>
-    </div>
-    <span class="amt num ${pn(a)}">${yen(a,true)}</span>
-    ${deletable ? `<button class="del" data-del-record="${r.id}">×</button>` : ""}
-  </div>`;
-}
-
-// ───────── ホーム ─────────
-function homeHTML(){
-  const t = totals();
-  const grand = t.realized + t.dividend + t.perk;
-  const un = unrealized();
-  const ys = years();
-  if (!chartYear || !ys.includes(chartYear)) chartYear = ys[0];
-  const mo = monthly(chartYear);
-  const yearTotal = mo.reduce((a,b)=>a+b,0);
-  const maxAbs = Math.max(...mo.map(Math.abs), 1);
-  const hasNeg = mo.some(v => v<0);
-
-  const absSum = Math.abs(t.realized)+Math.abs(t.dividend)+Math.abs(t.perk);
-  const band = absSum>0 ? ["realized","dividend","perk"]
-    .map(k => ({w: Math.abs(t[k])/absSum*100, c: TYPE_META[k].raw}))
-    .filter(b => b.w>0) : [];
-
-  const chips = ["realized","dividend","perk"].map(k => `
-    <div class="chip">
-      <div class="t"><span class="dot" style="background:${TYPE_META[k].raw}"></span>${TYPE_META[k].label}</div>
-      <div class="v num ${pn(t[k])}">${yen(t[k],true)}</div>
-    </div>`).join("");
-
-  const cols = mo.map((v,i)=>{
-    const hPct = Math.abs(v)/maxAbs * 92;
-    const bar = `<div class="bar ${v<0?"neg":""}" style="height:${v===0?0:Math.max(hPct,2)}%; background:${v>=0?"var(--plus)":"var(--minus)"}"></div>`;
-    return `<div class="col" data-month="${i}">
-      <div class="up">${v>0?bar:""}</div>
-      ${hasNeg?`<div class="down">${v<0?bar:""}</div>`:""}
+/* ================= 保有 ================= */
+let editHoldingId = null;
+function renderHold() {
+  const list = document.getElementById('holdList');
+  if (!state.holdings.length) {
+    list.innerHTML = `<div class="empty"><b>保有銘柄はまだありません</b>下のボタンから、いま持っている株を登録してみましょう</div>`;
+    return;
+  }
+  list.innerHTML = state.holdings.map(h => {
+    const ev = h.qty * h.cur, pl = ev - h.qty * h.buy;
+    const pct = h.buy ? (pl / (h.qty * h.buy) * 100).toFixed(1) : '0';
+    return `<div class="item" onclick="editHolding('${h.id}')">
+      <div class="ic sell">株</div>
+      <div class="mid"><div class="nm">${esc(h.name)}</div>
+        <div class="dt">${h.qty.toLocaleString()}株 × @${h.cur.toLocaleString()}円</div></div>
+      <div><div class="amt">${yen(ev)}</div>
+        <div class="sub-amt ${plClass(pl)}" style="font-weight:800">${signYen(pl)}(${pl>=0?'+':''}${pct}%)</div></div>
     </div>`;
-  }).join("");
-
-  const recent = [...data.records].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,5);
-
-  return `
-  <div class="card" style="padding:22px">
-    <div class="eyebrow">累計トータル損益(実現+配当+優待)</div>
-    <div class="hero-num num ${pn(grand)}">${yen(grand,true)}</div>
-    ${band.length?`<div class="band">${band.map(b=>`<div style="width:${b.w}%;background:${b.c}"></div>`).join("")}</div>`:""}
-    <div class="chips">${chips}</div>
-  </div>
-
-  <div class="card" style="display:flex; justify-content:space-between; align-items:center">
-    <div>
-      <div class="eyebrow">含み損益(未確定・トータルには含めません)</div>
-      <div class="num ${pn(un)}" style="font-size:20px; font-weight:700">${yen(un,true)}</div>
-    </div>
-    <div style="font-size:12px; color:var(--sub)">保有 ${data.holdings.length} 銘柄</div>
-  </div>
-
-  <div class="card">
-    <div style="display:flex; justify-content:space-between; align-items:baseline">
-      <div class="eyebrow">月別損益(売買+配当+優待)</div>
-      <select class="small" id="yearSel">${years().map(y=>`<option value="${y}" ${y===chartYear?"selected":""}>${y}年</option>`).join("")}</select>
-    </div>
-    <div style="font-size:13px; color:var(--sub)">${chartYear}年 合計
-      <span class="num ${pn(yearTotal)}" style="font-weight:700">${yen(yearTotal,true)}</span>
-    </div>
-    ${data.records.length===0
-      ? `<div class="empty">まだ記録がありません。<br>下の「＋ 追加」から最初の1件を記録しましょう。</div>`
-      : `<div class="chart">${hasNeg?`<div class="zeroline" style="top:50%"></div>`:""}${cols}</div>
-         <div class="xlabels">${Array.from({length:12},(_,i)=>`<div>${i+1}</div>`).join("")}</div>
-         <div class="chart-detail">${chartDetail || "棒をタップすると金額が見られます"}</div>`}
-  </div>
-
-  <div class="card">
-    <div class="eyebrow">直近の記録</div>
-    ${recent.length===0 ? `<div class="empty">記録はまだありません。</div>` : recent.map(r=>recordRowHTML(r,false)).join("")}
-  </div>`;
+  }).join('');
+}
+function goAddHolding() { editHoldingId = null; fillHoldingForm(); switchView('input'); setInputMode('holding'); }
+function editHolding(id) {
+  editHoldingId = id;
+  fillHoldingForm(state.holdings.find(h => h.id === id));
+  switchView('input'); setInputMode('holding');
+}
+function fillHoldingForm(h) {
+  document.getElementById('hName').value = h ? h.name : '';
+  document.getElementById('hQty').value = h ? h.qty : '';
+  document.getElementById('hBuy').value = h ? h.buy : '';
+  document.getElementById('hCur').value = h ? h.cur : '';
+  document.getElementById('hSave').textContent = h ? '変更を保存する' : 'この内容で保存する';
+  document.getElementById('hDelete').style.display = h ? 'block' : 'none';
+}
+function saveHolding() {
+  const name = document.getElementById('hName').value.trim();
+  const qty = Number(document.getElementById('hQty').value);
+  const buy = Number(document.getElementById('hBuy').value);
+  const cur = Number(document.getElementById('hCur').value);
+  if (!name) return toast('銘柄名を入れてや');
+  if (!qty || qty <= 0) return toast('株数を入れてや');
+  if (!buy || buy <= 0) return toast('取得単価を入れてや');
+  if (!cur || cur <= 0) return toast('現在株価を入れてや');
+  if (editHoldingId) {
+    const h = state.holdings.find(x => x.id === editHoldingId);
+    Object.assign(h, { name, qty, buy, cur });
+    toast('保有銘柄を更新したで');
+  } else {
+    state.holdings.push({ id: uid(), name, qty, buy, cur });
+    toast('保有銘柄を追加したで');
+  }
+  save(); editHoldingId = null; fillHoldingForm(); switchView('hold');
+}
+function deleteHolding() {
+  if (!editHoldingId) return;
+  if (!confirm('この銘柄を削除する?')) return;
+  state.holdings = state.holdings.filter(h => h.id !== editHoldingId);
+  save(); editHoldingId = null; fillHoldingForm(); toast('削除したで'); switchView('hold');
 }
 
-// ───────── 保有株 ─────────
-function holdingsHTML(){
-  if (editingHolding) return holdingFormHTML(editingHolding);
-  const list = data.holdings.map(h=>{
-    const pl = ((Number(h.currentPrice)||0)-(Number(h.avgPrice)||0))*(Number(h.shares)||0);
-    const val = (Number(h.currentPrice)||0)*(Number(h.shares)||0);
-    return `<div class="card">
-      <div class="h-head">
-        <div class="h-name">${esc(h.name)}${h.code?`<span class="h-code">${esc(h.code)}</span>`:""}</div>
-        <button class="h-edit" data-edit-holding="${h.id}">編集</button>
-      </div>
-      <div class="h-meta">
-        <span class="num">${(Number(h.shares)||0).toLocaleString()} 株</span>
-        <span>取得 <span class="num">${yen(h.avgPrice)}</span></span>
-        <span>現在 <span class="num">${yen(h.currentPrice)}</span></span>
-      </div>
-      <div class="h-foot">
-        <span style="font-size:13px; color:var(--sub)">評価額 <span class="num" style="font-weight:700; color:var(--ink)">${yen(val)}</span></span>
-        <span class="num ${pn(pl)}" style="font-size:15px; font-weight:800">${yen(pl,true)}</span>
-      </div>
-      ${h.updatedAt?`<div class="h-upd">株価更新日: ${esc(h.updatedAt)}</div>`:""}
-    </div>`;
-  }).join("");
-  return `
-    <button class="btn" id="addHoldingBtn" style="margin-bottom:12px">+ 銘柄を追加</button>
-    ${data.holdings.length===0
-      ? `<div class="card"><div class="empty">保有している銘柄を追加すると、<br>評価損益がここに表示されます。</div></div>`
-      : list + `<div class="note">「編集」から現在の株価を更新できます</div>`}`;
-}
-
-function holdingFormHTML(h){
-  const isEdit = !!h.id;
-  return `<div class="card">
-    <div style="font-size:16px; font-weight:800; margin-bottom:14px">${isEdit?"銘柄を編集":"銘柄を追加"}</div>
-    <label class="f"><div class="l">銘柄名(必須)</div><input id="hName" value="${esc(h.name||"")}" placeholder="例: トヨタ自動車"></label>
-    <label class="f"><div class="l">証券コード(任意)</div><input id="hCode" value="${esc(h.code||"")}" placeholder="例: 7203" inputmode="numeric"></label>
-    <label class="f"><div class="l">保有株数(必須)</div><input id="hShares" value="${h.shares??""}" placeholder="例: 100" inputmode="decimal" type="number"></label>
-    <label class="f"><div class="l">平均取得単価(円)</div><input id="hAvg" value="${h.avgPrice??""}" placeholder="例: 2500" inputmode="decimal" type="number"></label>
-    <label class="f"><div class="l">現在の株価(円)</div><input id="hCur" value="${h.currentPrice??""}" placeholder="例: 2650" inputmode="decimal" type="number"></label>
-    <div class="btnrow" style="margin-top:6px">
-      <button class="btn ghost" id="hCancel" style="flex:1">キャンセル</button>
-      <button class="btn" id="hSave" style="flex:2">保存する</button>
-    </div>
-    ${isEdit?`<button class="btn danger" id="hDelete" style="margin-top:10px">この銘柄を削除</button>`:""}
-  </div>`;
-}
-
-// ───────── 追加フォーム ─────────
-function addHTML(){
-  const hint = {
-    realized:"売却して確定した損益を入力します。損失のときはマイナス(例: -12000)で入力してください。",
-    dividend:"受け取った配当金(税引き後の手取り額がおすすめ)を入力します。",
-    perk:"優待の中身を金額に換算して入力します(例: クオカード3000円分 → 3000)。",
-  }[addType];
-  return `<div class="card">
-    <div style="font-size:16px; font-weight:800; margin-bottom:14px">記録を追加</div>
-    <div class="seg">
-      ${Object.entries(TYPE_META).map(([k,m])=>`
-        <button data-type="${k}" style="${addType===k?`border-color:${m.raw}; background:${m.raw}14; color:${m.raw}`:""}">${m.label}</button>`).join("")}
-    </div>
-    <div class="hint">${hint}</div>
-    <label class="f"><div class="l">日付</div><input id="rDate" type="date" value="${today()}"></label>
-    <label class="f"><div class="l">${addType==="perk"?"優待の内容":"銘柄名"}</div>
-      <input id="rName" placeholder="${addType==="perk"?"例: イオン クオカード":"例: 任天堂"}"></label>
-    <label class="f"><div class="l">金額(円)</div>
-      <input id="rAmount" placeholder="${addType==="realized"?"例: 25000(損失は -12000)":"例: 3000"}" inputmode="numeric" type="number"></label>
-    <label class="f"><div class="l">メモ(任意)</div><input id="rMemo" placeholder="例: NISA口座 / 100株分"></label>
-    <button class="btn" id="rSave">保存する</button>
-    <div class="toast" id="rToast"></div>
-  </div>`;
-}
-
-// ───────── 履歴 ─────────
-function historyHTML(){
-  const list = [...data.records]
-    .filter(r => historyFilter==="all" || r.type===historyFilter)
-    .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
-  return `
-  <div class="filters">
-    ${[["all","すべて"],["realized","売買"],["dividend","配当"],["perk","優待"]]
-      .map(([k,l])=>`<button data-filter="${k}" class="${historyFilter===k?"on":""}">${l}</button>`).join("")}
-  </div>
-  <div class="card">
-    ${list.length===0 ? `<div class="empty">該当する記録がありません。</div>` : list.map(r=>recordRowHTML(r,true)).join("")}
-  </div>
-  <div class="card">
-    <div class="eyebrow">データ管理</div>
-    <div class="btnrow">
-      <button class="btn ghost" id="backupBtn">バックアップを保存</button>
-      <button class="btn ghost" id="restoreBtn">復元する</button>
-    </div>
-    <input type="file" id="restoreFile" accept=".json" style="display:none">
-    <div class="backup-note">
-      バックアップはファイル(.json)としてスマホに保存されます。機種変更やデータ消去に備えて、月に1回ほど保存しておくと安心です。
-    </div>
-  </div>`;
-}
-
-// ───────── 画面切り替えとイベント ─────────
-function render(){
-  document.getElementById("todayLabel").textContent = today();
-  const view = document.getElementById("view");
-  view.innerHTML = { home:homeHTML, holdings:holdingsHTML, add:addHTML, history:historyHTML }[tab]();
-  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.tab===tab));
-  bind();
-}
-
-function bind(){
-  // グラフ
-  const sel = document.getElementById("yearSel");
-  if (sel) sel.onchange = e => { chartYear = e.target.value; chartDetail=""; render(); };
-  document.querySelectorAll(".col").forEach(c => c.onclick = () => {
-    const i = Number(c.dataset.month);
-    const v = monthly(chartYear)[i];
-    chartDetail = `${chartYear}年${i+1}月: ${yen(v,true)}`;
-    render();
-  });
-  // 保有株
-  const ab = document.getElementById("addHoldingBtn");
-  if (ab) ab.onclick = () => { editingHolding = {}; render(); };
-  document.querySelectorAll("[data-edit-holding]").forEach(b => b.onclick = () => {
-    editingHolding = data.holdings.find(h=>h.id===b.dataset.editHolding); render();
-  });
-  const hs = document.getElementById("hSave");
-  if (hs) hs.onclick = () => {
-    const name = document.getElementById("hName").value.trim();
-    const shares = Number(document.getElementById("hShares").value);
-    if (!name || !(shares>0)) { alert("銘柄名と保有株数(1以上)を入力してください。"); return; }
-    const h = {
-      id: editingHolding.id || uid(), name,
-      code: document.getElementById("hCode").value.trim(),
-      shares,
-      avgPrice: Number(document.getElementById("hAvg").value)||0,
-      currentPrice: Number(document.getElementById("hCur").value)||0,
-      updatedAt: today(),
-    };
-    const i = data.holdings.findIndex(x=>x.id===h.id);
-    if (i>=0) data.holdings[i]=h; else data.holdings.push(h);
-    editingHolding = null; commit();
-  };
-  const hc = document.getElementById("hCancel");
-  if (hc) hc.onclick = () => { editingHolding = null; render(); };
-  const hd = document.getElementById("hDelete");
-  if (hd) hd.onclick = () => {
-    if (confirm("この銘柄を削除しますか?")){
-      data.holdings = data.holdings.filter(x=>x.id!==editingHolding.id);
-      editingHolding = null; commit();
-    }
-  };
-  // 追加フォーム
-  document.querySelectorAll(".seg [data-type]").forEach(b => b.onclick = () => { addType = b.dataset.type; render(); });
-  const rs = document.getElementById("rSave");
-  if (rs) rs.onclick = () => {
-    const date = document.getElementById("rDate").value;
-    const name = document.getElementById("rName").value.trim();
-    const amount = document.getElementById("rAmount").value;
-    if (!date || !name || amount==="" || isNaN(Number(amount))) { alert("日付・名前・金額を入力してください。"); return; }
-    data.records.push({ id:uid(), type:addType, date, name, amount:Number(amount),
-      memo: document.getElementById("rMemo").value.trim() });
-    saveData(data);
-    document.getElementById("rName").value=""; document.getElementById("rAmount").value=""; document.getElementById("rMemo").value="";
-    document.getElementById("rToast").textContent = "保存しました ✓";
-    setTimeout(()=>{ const t=document.getElementById("rToast"); if(t) t.textContent=""; }, 1800);
-  };
-  // 履歴
-  document.querySelectorAll("[data-filter]").forEach(b => b.onclick = () => { historyFilter=b.dataset.filter; render(); });
-  document.querySelectorAll("[data-del-record]").forEach(b => b.onclick = () => {
-    if (confirm("この記録を削除しますか?")){
-      data.records = data.records.filter(r=>r.id!==b.dataset.delRecord); commit();
-    }
-  });
-  // バックアップ
-  const bb = document.getElementById("backupBtn");
-  if (bb) bb.onclick = () => {
-    const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `投資台帳バックアップ_${today()}.json`;
-    a.click(); URL.revokeObjectURL(a.href);
-  };
-  const rb = document.getElementById("restoreBtn");
-  if (rb) rb.onclick = () => document.getElementById("restoreFile").click();
-  const rf = document.getElementById("restoreFile");
-  if (rf) rf.onchange = (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try{
-        const d = JSON.parse(reader.result);
-        if (!Array.isArray(d.records) || !Array.isArray(d.holdings)) throw 0;
-        if (confirm("現在のデータをバックアップの内容で置き換えます。よろしいですか?")){
-          data = d; commit();
-        }
-      }catch(_){ alert("このファイルは復元できません。投資台帳のバックアップファイル(.json)を選んでください。"); }
-    };
-    reader.readAsText(file);
-  };
-}
-
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
-  tab = b.dataset.tab; editingHolding = null; chartDetail = ""; render();
+/* ================= 履歴 ================= */
+let histFilter = 'all', editRecordId = null;
+document.getElementById('histChips').addEventListener('click', e => {
+  const b = e.target.closest('.fchip'); if (!b) return;
+  histFilter = b.dataset.f;
+  document.querySelectorAll('#histChips .fchip').forEach(x => x.classList.toggle('on', x === b));
+  renderHist();
 });
-render();
+function renderHist() {
+  const list = document.getElementById('histList');
+  let recs = [...state.records].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  if (histFilter !== 'all') recs = recs.filter(r => r.type === histFilter);
+  if (!recs.length) {
+    list.innerHTML = `<div class="empty"><b>記録がまだありません</b>「入力」タブから、売却損益・配当・優待を記録できます</div>`;
+    return;
+  }
+  list.innerHTML = recs.map(r => `
+    <div class="item" onclick="editRecord('${r.id}')">
+      <div class="ic ${r.type}">${TYPE_LABEL[r.type]}</div>
+      <div class="mid"><div class="nm">${esc(r.name)}</div>
+        <div class="dt">${fmtDate(r.date)}${r.memo ? ' ・ ' + esc(r.memo) : ''}</div></div>
+      <div class="amt ${plClass(r.amount)}">${signYen(r.amount)}</div>
+    </div>`).join('');
+}
+function editRecord(id) {
+  editRecordId = id;
+  const r = state.records.find(x => x.id === id);
+  setRecType(r.type);
+  document.getElementById('rDate').value = r.date;
+  document.getElementById('rName').value = r.name;
+  document.getElementById('rAmount').value = r.amount;
+  document.getElementById('rMemo').value = r.memo || '';
+  document.getElementById('rSave').textContent = '変更を保存する';
+  document.getElementById('rDelete').style.display = 'block';
+  switchView('input'); setInputMode('record');
+}
+function resetRecordForm() {
+  editRecordId = null;
+  document.getElementById('rDate').value = todayStr();
+  document.getElementById('rName').value = '';
+  document.getElementById('rAmount').value = '';
+  document.getElementById('rMemo').value = '';
+  document.getElementById('rSave').textContent = 'この内容で記録する';
+  document.getElementById('rDelete').style.display = 'none';
+}
+function saveRecord() {
+  const date = document.getElementById('rDate').value;
+  const name = document.getElementById('rName').value.trim();
+  const amount = Number(document.getElementById('rAmount').value);
+  const memo = document.getElementById('rMemo').value.trim();
+  if (!date) return toast('日付を入れてや');
+  if (!name) return toast('銘柄名を入れてや');
+  if (!document.getElementById('rAmount').value || isNaN(amount)) return toast('金額を入れてや');
+  if (recType !== 'sell' && amount < 0) return toast('配当・優待はプラスで入れてな');
+  if (editRecordId) {
+    const r = state.records.find(x => x.id === editRecordId);
+    Object.assign(r, { type: recType, date, name, amount, memo });
+    toast('記録を更新したで');
+  } else {
+    state.records.push({ id: uid(), type: recType, date, name, amount, memo });
+    toast(TYPE_LABEL[recType] + 'を記録したで');
+  }
+  save(); resetRecordForm(); switchView('home');
+}
+function deleteRecord() {
+  if (!editRecordId) return;
+  if (!confirm('この記録を削除する?')) return;
+  state.records = state.records.filter(r => r.id !== editRecordId);
+  save(); resetRecordForm(); toast('削除したで'); switchView('hist');
+}
+
+/* ================= 入力タブ切替 ================= */
+let recType = 'sell';
+document.getElementById('recTypeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return; setRecType(b.dataset.t);
+});
+function setRecType(t) {
+  recType = t;
+  document.querySelectorAll('#recTypeSeg button').forEach(x => x.classList.toggle('on', x.dataset.t === t));
+}
+document.getElementById('inputModeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return; setInputMode(b.dataset.m);
+});
+function setInputMode(m) {
+  document.querySelectorAll('#inputModeSeg button').forEach(x => x.classList.toggle('on', x.dataset.m === m));
+  document.getElementById('formRecord').style.display = m === 'record' ? 'block' : 'none';
+  document.getElementById('formHolding').style.display = m === 'holding' ? 'block' : 'none';
+}
+
+/* ================= 設定 ================= */
+function exportData() {
+  const blob = new Blob([JSON.stringify({ app: 'toshi-daicho', version: 2, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'toshi-daicho-backup-' + todayStr() + '.json';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('バックアップを書き出したで');
+}
+function importData(input) {
+  const f = input.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const p = JSON.parse(reader.result);
+      if (!Array.isArray(p.records) || !Array.isArray(p.holdings)) throw new Error();
+      if (!confirm('いまのデータを、このバックアップで置き換える?')) return;
+      state = { records: p.records, holdings: p.holdings };
+      save(); renderAll(); toast('データを復元したで');
+    } catch (e) { toast('このファイルは読み込めへんかった…'); }
+  };
+  reader.readAsText(f); input.value = '';
+}
+function clearAll() {
+  if (!confirm('すべてのデータを削除する?元に戻せへんで!')) return;
+  if (!confirm('ほんまにええ?最終確認やで')) return;
+  state = { records: [], holdings: [] };
+  save(); renderAll(); toast('全データを削除したで');
+}
+
+/* ================= 画面切替 ================= */
+function switchView(v) {
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('active', s.id === 'view-' + v));
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  if (v === 'home') renderHome();
+  if (v === 'hold') renderHold();
+  if (v === 'hist') renderHist();
+  window.scrollTo(0, 0);
+}
+document.querySelector('nav.tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.v === 'input') { resetRecordForm(); editHoldingId = null; fillHoldingForm(); setInputMode('record'); }
+  switchView(b.dataset.v);
+});
+function renderAll() { renderHome(); renderHold(); renderHist(); }
+
+/* ================= 初期化 ================= */
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+document.getElementById('rDate').value = todayStr();
+renderAll();
 </script>
 </body>
 </html>
