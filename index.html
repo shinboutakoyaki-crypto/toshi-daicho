@@ -107,7 +107,8 @@
     width:38px;height:38px;border-radius:12px;flex:none;
     display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;color:#fff;
   }
-  .ic.sell{background:var(--navy)} .ic.div{background:var(--sky)} .ic.perk{background:var(--amber)}
+  .ic.sell{background:var(--navy)} .ic.buy{background:var(--navy2)}
+  .ic.div{background:var(--sky)} .ic.perk{background:var(--amber)}
   .item .mid{flex:1;min-width:0}
   .item .nm{font-size:.88rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .item .dt{font-size:.7rem;color:var(--sub);font-weight:600;margin-top:2px}
@@ -150,6 +151,35 @@
   .btn.ghost{background:#fff;color:var(--plus);box-shadow:var(--shadow);margin-top:10px}
   .btn.line{background:#fff;color:var(--navy);box-shadow:var(--shadow)}
   .hint{font-size:.72rem;color:var(--sub);font-weight:600;margin:-6px 0 14px;line-height:1.6}
+
+  /* ===== 追加: 詳細フォーム用の小物(既存トーンに合わせた) ===== */
+  .seg.mini{margin-bottom:13px}
+  .calcline{
+    display:flex;justify-content:space-between;align-items:baseline;
+    background:#F0F4FB;border:1px solid var(--line);border-radius:12px;
+    padding:10px 13px;margin-bottom:13px;font-size:.72rem;font-weight:700;color:var(--sub);
+  }
+  .calcline b{font-size:1rem;color:var(--navy);font-weight:800}
+  .sellhint{
+    display:none;background:#F0F4FB;border:1px solid var(--line);border-radius:12px;
+    padding:9px 12px;margin:-4px 0 13px;font-size:.72rem;font-weight:700;color:var(--navy);
+  }
+  .tagmini{
+    display:inline-block;font-size:.6rem;font-weight:800;color:var(--sub);
+    background:#EFF3FA;border-radius:6px;padding:2px 7px;margin-right:4px;vertical-align:1px;
+  }
+  .curline{
+    display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;
+    border-top:1px dashed var(--line);width:100%;
+  }
+  .curline .lb{font-size:.68rem;font-weight:700;color:var(--sub);white-space:nowrap}
+  .curline input{
+    width:110px;border:1.5px solid var(--line);border-radius:10px;background:#fff;
+    padding:8px 10px;font-size:.9rem;font-family:inherit;color:var(--ink);
+  }
+  .curline input:focus{outline:none;border-color:var(--navy2)}
+  .item.pos{flex-wrap:wrap}
+  .warnline{font-size:.66rem;font-weight:700;color:var(--amber);margin-top:6px;width:100%}
 
   /* ===== bottom nav ===== */
   nav.tabs{
@@ -235,15 +265,20 @@
 
   <!-- ============ 保有 ============ -->
   <section class="view" id="view-hold">
-    <div class="sec"><h2>保有銘柄</h2><div id="holdList"></div></div>
-    <button class="btn line" onclick="goAddHolding()">+ 保有銘柄を追加する</button>
+    <div class="sec"><h2>保有銘柄(自動計算)</h2><div id="holdList"></div></div>
+    <button class="btn line" onclick="goAddHolding()">+ いま持っている株を登録する</button>
+    <div class="sec" id="initSec" style="display:none;margin-top:14px">
+      <h2>スタート時点の登録</h2>
+      <p class="hint" style="margin:-2px 4px 8px">自動計算の出発点になる登録や。間違えたときはタップして直せるで。</p>
+      <div id="initList"></div>
+    </div>
   </section>
 
   <!-- ============ 履歴 ============ -->
   <section class="view" id="view-hist">
     <div class="chips" id="histChips">
       <button class="fchip on" data-f="all">すべて</button>
-      <button class="fchip" data-f="sell">売却損益</button>
+      <button class="fchip" data-f="trade">売買</button>
       <button class="fchip" data-f="div">配当</button>
       <button class="fchip" data-f="perk">優待</button>
     </div>
@@ -254,40 +289,156 @@
   <section class="view" id="view-input">
     <div class="seg" id="inputModeSeg">
       <button class="on" data-m="record">取引を記録</button>
-      <button data-m="holding">保有銘柄</button>
+      <button data-m="holding">保有株の登録</button>
     </div>
 
     <!-- 取引記録フォーム -->
     <div id="formRecord">
       <div class="seg" id="recTypeSeg">
-        <button class="on" data-t="sell">売却損益</button>
+        <button class="on" data-t="trade">売買</button>
         <button data-t="div">配当</button>
         <button data-t="perk">優待</button>
       </div>
-      <div class="card" style="margin-bottom:14px">
-        <div class="field"><label>日付</label><input type="date" id="rDate"></div>
-        <div class="field"><label>銘柄名</label><input type="text" id="rName" placeholder="例:トヨタ自動車"></div>
-        <div class="field"><label>金額(円・税引後)</label><input type="number" id="rAmount" inputmode="numeric" placeholder="例:12500(損失は -5000)"></div>
-        <div class="field" style="margin-bottom:0"><label>メモ(任意)</label><input type="text" id="rMemo" placeholder="例:100株 NISA"></div>
+
+      <!-- 売買 -->
+      <div id="formTrade">
+        <div class="seg mini" id="sideSeg">
+          <button class="on" data-s="buy">買い</button>
+          <button data-s="sell">売り</button>
+        </div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="field"><label>取引日</label><input type="date" id="tDate"></div>
+          <div class="frow">
+            <div class="field"><label>銘柄コード</label><input type="text" id="tCode" inputmode="numeric" placeholder="例:7203" autocomplete="off"></div>
+            <div class="field" style="flex:1.6"><label>銘柄名</label><input type="text" id="tName" placeholder="例:トヨタ自動車" autocomplete="off"></div>
+          </div>
+          <div class="sellhint" id="sellHint"></div>
+          <div class="frow">
+            <div class="field"><label>株数</label><input type="number" id="tQty" inputmode="numeric" placeholder="100"></div>
+            <div class="field"><label>単価(円)</label><input type="number" id="tPrice" inputmode="decimal" placeholder="2500"></div>
+          </div>
+          <div class="field"><label>手数料(円)・なければ0のまま</label><input type="number" id="tFee" inputmode="numeric" value="0"></div>
+          <div class="calcline"><span id="calcLabel">支払額の目安</span><b id="calcVal">¥0</b></div>
+          <div class="field"><label>証券会社</label>
+            <div class="seg mini" id="tBkSeg" style="margin-bottom:0">
+              <button class="on" data-b="SBI証券">SBI証券</button>
+              <button data-b="楽天証券">楽天証券</button>
+              <button data-b="その他">その他</button>
+            </div>
+            <input type="text" id="tBkOther" placeholder="証券会社名" style="display:none;margin-top:8px">
+          </div>
+          <div class="field"><label>口座区分</label>
+            <div class="seg mini" id="tAcSeg" style="margin-bottom:0">
+              <button class="on" data-a="特定">特定</button>
+              <button data-a="NISA">NISA</button>
+              <button data-a="一般">一般</button>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>メモ(任意)</label><input type="text" id="tMemo" placeholder="例:決算前に利確"></div>
+        </div>
+        <p class="hint">売りを記録したら、損益はアプリが自動で計算するで。金額の手入力はいらんからな。</p>
+        <button class="btn" id="tSave" onclick="saveTrade()">この内容で記録する</button>
+        <button class="btn ghost" id="tDelete" style="display:none" onclick="deleteTrade()">この記録を削除する</button>
       </div>
-      <p class="hint">・売却損益は、損失ならマイナスで入力してな(例:-5000)<br>・優待は「金額に換算した価値」を入れてや(例:クオカード1000円分 → 1000)</p>
-      <button class="btn" id="rSave" onclick="saveRecord()">この内容で記録する</button>
-      <button class="btn ghost" id="rDelete" style="display:none" onclick="deleteRecord()">この記録を削除する</button>
+
+      <!-- 配当 -->
+      <div id="formDiv" style="display:none">
+        <div class="card" style="margin-bottom:14px">
+          <div class="field"><label>受取日</label><input type="date" id="dDate"></div>
+          <div class="frow">
+            <div class="field"><label>銘柄コード</label><input type="text" id="dCode" inputmode="numeric" placeholder="例:7203" autocomplete="off"></div>
+            <div class="field" style="flex:1.6"><label>銘柄名</label><input type="text" id="dName" placeholder="例:トヨタ自動車" autocomplete="off"></div>
+          </div>
+          <div class="frow">
+            <div class="field"><label>受取金額(円・税引後)</label><input type="number" id="dAmount" inputmode="numeric" placeholder="例:3200"></div>
+            <div class="field"><label>株数(任意)</label><input type="number" id="dQty" inputmode="numeric" placeholder="100"></div>
+          </div>
+          <div class="field"><label>証券会社</label>
+            <div class="seg mini" id="dBkSeg" style="margin-bottom:0">
+              <button class="on" data-b="SBI証券">SBI証券</button>
+              <button data-b="楽天証券">楽天証券</button>
+              <button data-b="その他">その他</button>
+            </div>
+            <input type="text" id="dBkOther" placeholder="証券会社名" style="display:none;margin-top:8px">
+          </div>
+          <div class="field"><label>口座区分</label>
+            <div class="seg mini" id="dAcSeg" style="margin-bottom:0">
+              <button class="on" data-a="特定">特定</button>
+              <button data-a="NISA">NISA</button>
+              <button data-a="一般">一般</button>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>メモ(任意)</label><input type="text" id="dMemo" placeholder="例:中間配当"></div>
+        </div>
+        <p class="hint">実際に振り込まれた金額(税引き後の手取り)を入れるのがおすすめや。</p>
+        <button class="btn" id="dSave" onclick="saveDiv()">この内容で記録する</button>
+        <button class="btn ghost" id="dDelete" style="display:none" onclick="deleteDiv()">この記録を削除する</button>
+      </div>
+
+      <!-- 優待 -->
+      <div id="formPerk" style="display:none">
+        <div class="card" style="margin-bottom:14px">
+          <div class="field"><label>受取日</label><input type="date" id="pDate"></div>
+          <div class="frow">
+            <div class="field"><label>銘柄コード</label><input type="text" id="pCode" inputmode="numeric" placeholder="例:8267" autocomplete="off"></div>
+            <div class="field" style="flex:1.6"><label>銘柄名</label><input type="text" id="pName" placeholder="例:イオン" autocomplete="off"></div>
+          </div>
+          <div class="field"><label>優待の内容</label><input type="text" id="pContent" placeholder="例:クオカード3,000円分"></div>
+          <div class="field"><label>金額換算(円)</label><input type="number" id="pAmount" inputmode="numeric" placeholder="例:3000"></div>
+          <div class="field"><label>証券会社</label>
+            <div class="seg mini" id="pBkSeg" style="margin-bottom:0">
+              <button class="on" data-b="SBI証券">SBI証券</button>
+              <button data-b="楽天証券">楽天証券</button>
+              <button data-b="その他">その他</button>
+            </div>
+            <input type="text" id="pBkOther" placeholder="証券会社名" style="display:none;margin-top:8px">
+          </div>
+          <div class="field"><label>口座区分</label>
+            <div class="seg mini" id="pAcSeg" style="margin-bottom:0">
+              <button class="on" data-a="特定">特定</button>
+              <button data-a="NISA">NISA</button>
+              <button data-a="一般">一般</button>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:0"><label>メモ(任意)</label><input type="text" id="pMemo" placeholder="例:100株の優待"></div>
+        </div>
+        <p class="hint">優待は「金額に換算した価値」を入れてや(例:クオカード3,000円分 → 3000)。</p>
+        <button class="btn" id="pSave" onclick="savePerk()">この内容で記録する</button>
+        <button class="btn ghost" id="pDelete" style="display:none" onclick="deletePerk()">この記録を削除する</button>
+      </div>
     </div>
 
-    <!-- 保有銘柄フォーム -->
+    <!-- スタート時点の保有株フォーム -->
     <div id="formHolding" style="display:none">
       <div class="card" style="margin-bottom:14px">
-        <div class="field"><label>銘柄名</label><input type="text" id="hName" placeholder="例:三菱UFJ"></div>
+        <div class="frow">
+          <div class="field"><label>銘柄コード</label><input type="text" id="hCode" inputmode="numeric" placeholder="例:8306" autocomplete="off"></div>
+          <div class="field" style="flex:1.6"><label>銘柄名</label><input type="text" id="hName" placeholder="例:三菱UFJ" autocomplete="off"></div>
+        </div>
         <div class="frow">
           <div class="field"><label>株数</label><input type="number" id="hQty" inputmode="numeric" placeholder="100"></div>
-          <div class="field"><label>取得単価(円)</label><input type="number" id="hBuy" inputmode="decimal" placeholder="1520.5"></div>
+          <div class="field"><label>平均取得単価(円)</label><input type="number" id="hAvg" inputmode="decimal" placeholder="1520.5"></div>
         </div>
-        <div class="field" style="margin-bottom:0"><label>現在株価(円)</label><input type="number" id="hCur" inputmode="decimal" placeholder="1780"></div>
+        <div class="field"><label>現在株価(円・任意)</label><input type="number" id="hCur" inputmode="decimal" placeholder="1780"></div>
+        <div class="field"><label>証券会社</label>
+          <div class="seg mini" id="hBkSeg" style="margin-bottom:0">
+            <button class="on" data-b="SBI証券">SBI証券</button>
+            <button data-b="楽天証券">楽天証券</button>
+            <button data-b="その他">その他</button>
+          </div>
+          <input type="text" id="hBkOther" placeholder="証券会社名" style="display:none;margin-top:8px">
+        </div>
+        <div class="field" style="margin-bottom:0"><label>口座区分</label>
+          <div class="seg mini" id="hAcSeg" style="margin-bottom:0">
+            <button class="on" data-a="特定">特定</button>
+            <button data-a="NISA">NISA</button>
+            <button data-a="一般">一般</button>
+          </div>
+        </div>
       </div>
-      <p class="hint">現在株価は自動では取れへんから、たまに証券アプリを見て更新してな。保有一覧からタップすると編集できるで。</p>
-      <button class="btn" id="hSave" onclick="saveHolding()">この内容で保存する</button>
-      <button class="btn ghost" id="hDelete" style="display:none" onclick="deleteHolding()">この銘柄を削除する</button>
+      <p class="hint">証券会社アプリの保有一覧を見ながら写してな。株数と平均取得単価はそのまま画面に出とるで。ここが自動計算のスタート地点になるんや。現在株価はあとから保有一覧で更新できるで。</p>
+      <button class="btn" id="hSave" onclick="saveInit()">この内容で保存する</button>
+      <button class="btn ghost" id="hDelete" style="display:none" onclick="deleteInit()">この登録を削除する</button>
     </div>
   </section>
 
@@ -304,12 +455,22 @@
       </div>
     </div>
     <div class="sec">
+      <h2>損益計算のルール</h2>
+      <div class="card">
+        <p style="font-size:.74rem;color:var(--sub);font-weight:600;line-height:1.9">
+          ・買い増しすると平均取得単価を自動計算するで(手数料込み)<br>
+          ・売ると「(売却単価−平均取得単価)×株数−手数料」で損益を自動計上や<br>
+          ・同じ銘柄でも証券会社・口座区分が違えば別々に管理するで<br>
+          ・証券会社と同じ「平均取得単価方式」やから数字が合いやすいんや</p>
+      </div>
+    </div>
+    <div class="sec">
       <h2>データの初期化</h2>
       <div class="card">
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v2.0</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.0</p>
   </section>
 </main>
 
@@ -332,17 +493,23 @@
 <script>
 'use strict';
 /* ================= データ ================= */
-const KEY = 'toshi-daicho-v2';
-let state = { records: [], holdings: [] };
+const KEY = 'toshi-daicho-v3';
+let state = { trades: [], dividends: [], perks: [], inits: [], curPrices: {}, prefs: { broker: 'SBI証券', account: '特定' } };
 try {
   const raw = localStorage.getItem(KEY);
-  if (raw) { const p = JSON.parse(raw); if (p && Array.isArray(p.records) && Array.isArray(p.holdings)) state = p; }
+  if (raw) {
+    const p = JSON.parse(raw);
+    if (p && Array.isArray(p.trades)) {
+      state = p;
+      state.dividends ||= []; state.perks ||= []; state.inits ||= [];
+      state.curPrices ||= {}; state.prefs ||= { broker: 'SBI証券', account: '特定' };
+    }
+  }
 } catch (e) {}
 function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 /* ================= 表示ヘルパー ================= */
-const TYPE_LABEL = { sell: '売却', div: '配当', perk: '優待' };
 const yen = n => '¥' + Math.round(Math.abs(n)).toLocaleString('ja-JP');
 function signYen(n) { return (n > 0 ? '+' : n < 0 ? '-' : '±') + yen(n); }
 function plClass(n) { return n > 0 ? 'pl-plus' : n < 0 ? 'pl-minus' : 'pl-zero'; }
@@ -352,14 +519,72 @@ function toast(msg) {
   clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove('show'), 1800);
 }
 function fmtDate(d) { const [y, m, dd] = d.split('-'); return `${y}/${Number(m)}/${Number(dd)}`; }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+const numv = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
+
+/* ================= 自動計算エンジン ================= */
+function pKey(o) { return (o.code || o.name) + '__' + o.broker + '__' + o.account; }
+
+function computePos(excludeTradeId) {
+  const map = new Map();
+  state.inits.forEach(h => {
+    map.set(pKey(h), { code: h.code || '', name: h.name, broker: h.broker, account: h.account,
+      qty: numv(h.qty), avg: numv(h.avg), warn: false });
+  });
+  const ts = state.trades
+    .filter(t => t.id !== excludeTradeId)
+    .sort((a, b) => a.date === b.date ? (a.id < b.id ? -1 : 1) : (a.date < b.date ? -1 : 1));
+  const realizedByTrade = {}, realizedList = [];
+  ts.forEach(t => {
+    const k = pKey(t);
+    let p = map.get(k);
+    if (t.side === 'buy') {
+      if (!p) { p = { code: t.code || '', name: t.name, broker: t.broker, account: t.account, qty: 0, avg: 0, warn: false }; map.set(k, p); }
+      const cost = p.qty * p.avg + t.qty * t.price + numv(t.fee);
+      p.qty += t.qty;
+      p.avg = p.qty > 0 ? cost / p.qty : 0;
+      if (t.name) p.name = t.name;
+    } else {
+      if (!p) { p = { code: t.code || '', name: t.name, broker: t.broker, account: t.account, qty: 0, avg: t.price, warn: true }; map.set(k, p); }
+      const avg = p.qty > 0 ? p.avg : t.price;
+      const pl = Math.round((t.price - avg) * t.qty - numv(t.fee));
+      realizedByTrade[t.id] = pl;
+      realizedList.push({ date: t.date, name: t.name, amount: pl });
+      if (t.qty > p.qty + 1e-9) p.warn = true;
+      p.qty = Math.max(0, p.qty - t.qty);
+    }
+  });
+  return { positions: [...map.values()].filter(p => p.qty > 0), all: [...map.values()], realizedByTrade, realizedList };
+}
+function curOf(p) { const c = state.curPrices[p.code || p.name]; return c ? numv(c) : null; }
+function knownNames() {
+  const m = {};
+  [...state.inits, ...state.trades, ...state.dividends, ...state.perks]
+    .forEach(r => { if (r.code && r.name) m[r.code] = r.name; });
+  return m;
+}
+function receiveEvents() {
+  const { realizedList } = computePos();
+  return [
+    ...realizedList.map(r => ({ date: r.date, amount: r.amount })),
+    ...state.dividends.map(r => ({ date: r.date, amount: numv(r.amount) })),
+    ...state.perks.map(r => ({ date: r.date, amount: numv(r.amount) })),
+  ];
+}
 
 /* ================= 集計 ================= */
 function calc() {
-  const evalTotal = state.holdings.reduce((s, h) => s + h.qty * h.cur, 0);
-  const costTotal = state.holdings.reduce((s, h) => s + h.qty * h.buy, 0);
+  const { positions, realizedList } = computePos();
+  let evalTotal = 0, costTotal = 0;
+  positions.forEach(p => {
+    const cur = curOf(p);
+    evalTotal += p.qty * (cur ?? p.avg);
+    costTotal += p.qty * p.avg;
+  });
   const unreal = evalTotal - costTotal;
-  const sum = t => state.records.filter(r => r.type === t).reduce((s, r) => s + r.amount, 0);
-  const sell = sum('sell'), div = sum('div'), perk = sum('perk');
+  const sell = realizedList.reduce((s, r) => s + r.amount, 0);
+  const div = state.dividends.reduce((s, r) => s + numv(r.amount), 0);
+  const perk = state.perks.reduce((s, r) => s + numv(r.amount), 0);
   return { evalTotal, costTotal, unreal, sell, div, perk,
     realDiv: sell + div, divPerk: div + perk, total: unreal + sell + div + perk };
 }
@@ -427,7 +652,7 @@ function renderDonut(c) {
 /* ---- 月別バー ---- */
 let selYear = new Date().getFullYear();
 function renderYears() {
-  const years = [...new Set(state.records.map(r => r.date.slice(0, 4)))].sort().reverse();
+  const years = [...new Set(receiveEvents().map(r => r.date.slice(0, 4)))].sort().reverse();
   if (!years.length) years.push(String(new Date().getFullYear()));
   if (!years.includes(String(selYear))) selYear = Number(years[0]);
   const sel = document.getElementById('yearSel');
@@ -439,7 +664,7 @@ function renderBars() {
   const svg = document.getElementById('barChart');
   const W = 340, H = 150, padB = 18, padT = 14;
   const months = Array.from({ length: 12 }, () => 0);
-  state.records.forEach(r => {
+  receiveEvents().forEach(r => {
     if (Number(r.date.slice(0, 4)) === selYear) months[Number(r.date.slice(5, 7)) - 1] += r.amount;
   });
   const maxV = Math.max(...months, 0), minV = Math.min(...months, 0);
@@ -465,67 +690,323 @@ function renderBars() {
 }
 
 /* ================= 保有 ================= */
-let editHoldingId = null;
+let editInitId = null;
 function renderHold() {
   const list = document.getElementById('holdList');
-  if (!state.holdings.length) {
-    list.innerHTML = `<div class="empty"><b>保有銘柄はまだありません</b>下のボタンから、いま持っている株を登録してみましょう</div>`;
-    return;
+  const { positions } = computePos();
+  if (!positions.length) {
+    list.innerHTML = `<div class="empty"><b>保有銘柄はまだありません</b>下のボタンから、いま持っている株を登録してみましょう。<br>登録すると売買の自動計算が始まるで</div>`;
+  } else {
+    list.innerHTML = positions.map(p => {
+      const cur = curOf(p);
+      const ev = p.qty * (cur ?? p.avg), pl = cur !== null ? Math.round((cur - p.avg) * p.qty) : null;
+      const pct = (cur !== null && p.avg) ? ((cur - p.avg) / p.avg * 100).toFixed(1) : null;
+      const priceKey = p.code || p.name;
+      return `<div class="item pos">
+        <div class="ic sell">株</div>
+        <div class="mid">
+          <div class="nm">${esc(p.name)}${p.code ? ` <span style="font-size:.66rem;color:var(--sub);font-weight:700">${esc(p.code)}</span>` : ''}</div>
+          <div class="dt"><span class="tagmini">${esc(p.broker)}</span><span class="tagmini">${esc(p.account)}</span>${p.qty.toLocaleString()}株 ・ 平均@${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円</div>
+        </div>
+        <div><div class="amt">${yen(ev)}</div>
+          ${pl !== null
+            ? `<div class="sub-amt ${plClass(pl)}" style="font-weight:800">${signYen(pl)}(${pl>=0?'+':''}${pct}%)</div>`
+            : `<div class="sub-amt">株価未入力</div>`}</div>
+        <div class="curline">
+          <span class="lb">現在株価</span>
+          <input type="number" inputmode="decimal" value="${cur ?? ''}" placeholder="任意"
+            onchange="setCurPrice('${esc(priceKey)}', this.value)">
+          <span class="lb" style="margin-left:auto">入れると含み損益が出るで</span>
+        </div>
+        ${p.warn ? `<div class="warnline">⚠ 売り株数が記録上の保有を超えとるで。スタート登録や買いの記録を確認してな</div>` : ''}
+      </div>`;
+    }).join('');
   }
-  list.innerHTML = state.holdings.map(h => {
-    const ev = h.qty * h.cur, pl = ev - h.qty * h.buy;
-    const pct = h.buy ? (pl / (h.qty * h.buy) * 100).toFixed(1) : '0';
-    return `<div class="item" onclick="editHolding('${h.id}')">
-      <div class="ic sell">株</div>
-      <div class="mid"><div class="nm">${esc(h.name)}</div>
-        <div class="dt">${h.qty.toLocaleString()}株 × @${h.cur.toLocaleString()}円</div></div>
-      <div><div class="amt">${yen(ev)}</div>
-        <div class="sub-amt ${plClass(pl)}" style="font-weight:800">${signYen(pl)}(${pl>=0?'+':''}${pct}%)</div></div>
-    </div>`;
-  }).join('');
+  const initSec = document.getElementById('initSec');
+  const initList = document.getElementById('initList');
+  if (state.inits.length) {
+    initSec.style.display = 'block';
+    initList.innerHTML = state.inits.map(h => `
+      <div class="item" onclick="editInit('${h.id}')">
+        <div class="ic buy">初</div>
+        <div class="mid"><div class="nm">${esc(h.name)}</div>
+          <div class="dt">${h.qty.toLocaleString()}株 ・ 平均@${Number(h.avg).toLocaleString('ja-JP',{maximumFractionDigits:1})}円 ・ ${esc(h.broker)}/${esc(h.account)}</div></div>
+        <div class="sub-amt">タップで編集</div>
+      </div>`).join('');
+  } else initSec.style.display = 'none';
 }
-function goAddHolding() { editHoldingId = null; fillHoldingForm(); switchView('input'); setInputMode('holding'); }
-function editHolding(id) {
-  editHoldingId = id;
-  fillHoldingForm(state.holdings.find(h => h.id === id));
+function setCurPrice(key, val) {
+  if (val === '' || numv(val) <= 0) delete state.curPrices[key];
+  else state.curPrices[key] = numv(val);
+  save(); renderHold(); toast('株価を更新したで');
+}
+
+/* ================= セグメント部品 ================= */
+function bindSegs(prefix) {
+  const bk = document.getElementById(prefix + 'BkSeg');
+  bk.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    bk.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    document.getElementById(prefix + 'BkOther').style.display = b.dataset.b === 'その他' ? 'block' : 'none';
+    if (prefix === 't') updateSellHint();
+  });
+  const ac = document.getElementById(prefix + 'AcSeg');
+  ac.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    ac.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    if (prefix === 't') updateSellHint();
+  });
+}
+function readBk(prefix) {
+  const on = document.getElementById(prefix + 'BkSeg').querySelector('button.on');
+  if (on.dataset.b === 'その他') {
+    const v = document.getElementById(prefix + 'BkOther').value.trim();
+    return v || 'その他';
+  }
+  return on.dataset.b;
+}
+function readAc(prefix) {
+  return document.getElementById(prefix + 'AcSeg').querySelector('button.on').dataset.a;
+}
+function setBk(prefix, val) {
+  const seg = document.getElementById(prefix + 'BkSeg');
+  const isStd = val === 'SBI証券' || val === '楽天証券';
+  seg.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('on', isStd ? b.dataset.b === val : b.dataset.b === 'その他'));
+  const other = document.getElementById(prefix + 'BkOther');
+  other.style.display = isStd ? 'none' : 'block';
+  other.value = isStd || val === 'その他' ? '' : (val || '');
+}
+function setAc(prefix, val) {
+  document.getElementById(prefix + 'AcSeg').querySelectorAll('button')
+    .forEach(b => b.classList.toggle('on', b.dataset.a === (val || '特定')));
+}
+function bindAutofill(codeId, nameId, after) {
+  document.getElementById(codeId).addEventListener('input', () => {
+    const code = document.getElementById(codeId).value.trim();
+    const nameEl = document.getElementById(nameId);
+    const known = knownNames();
+    if (known[code] && !nameEl.value) nameEl.value = known[code];
+    if (after) after();
+  });
+}
+['t','d','p','h'].forEach(bindSegs);
+bindAutofill('tCode','tName', () => updateSellHint());
+bindAutofill('dCode','dName');
+bindAutofill('pCode','pName');
+bindAutofill('hCode','hName');
+document.getElementById('tName').addEventListener('input', () => updateSellHint());
+
+/* ================= 売買フォーム ================= */
+let tradeSide = 'buy', editTradeId = null;
+document.getElementById('sideSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return; setSide(b.dataset.s);
+});
+function setSide(s) {
+  tradeSide = s;
+  document.querySelectorAll('#sideSeg button').forEach(x => x.classList.toggle('on', x.dataset.s === s));
+  refreshCalc(); updateSellHint();
+}
+function refreshCalc() {
+  const q = numv(document.getElementById('tQty').value);
+  const pr = numv(document.getElementById('tPrice').value);
+  const fe = numv(document.getElementById('tFee').value);
+  document.getElementById('calcLabel').textContent = tradeSide === 'buy' ? '支払額の目安' : '受取額の目安';
+  document.getElementById('calcVal').textContent = yen(tradeSide === 'buy' ? q * pr + fe : Math.max(q * pr - fe, 0));
+}
+['tQty','tPrice','tFee'].forEach(id => document.getElementById(id).addEventListener('input', refreshCalc));
+function updateSellHint() {
+  const el = document.getElementById('sellHint');
+  if (tradeSide !== 'sell') { el.style.display = 'none'; return; }
+  const key = { code: document.getElementById('tCode').value.trim(),
+    name: document.getElementById('tName').value.trim(),
+    broker: readBk('t'), account: readAc('t') };
+  if (!key.code && !key.name) { el.style.display = 'none'; return; }
+  const p = computePos(editTradeId).positions.find(x => pKey(x) === pKey(key));
+  if (p) {
+    el.style.display = 'block';
+    el.innerHTML = `この口座での保有: <b>${p.qty.toLocaleString()}株</b>(平均 @${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円)`;
+  } else el.style.display = 'none';
+}
+function saveTrade() {
+  const t = {
+    id: editTradeId || uid(), side: tradeSide,
+    date: document.getElementById('tDate').value,
+    code: document.getElementById('tCode').value.trim(),
+    name: document.getElementById('tName').value.trim(),
+    qty: numv(document.getElementById('tQty').value),
+    price: numv(document.getElementById('tPrice').value),
+    fee: numv(document.getElementById('tFee').value),
+    broker: readBk('t'), account: readAc('t'),
+    memo: document.getElementById('tMemo').value.trim(),
+  };
+  if (!t.date) return toast('取引日を入れてや');
+  if (!t.name) return toast('銘柄名を入れてや');
+  if (t.qty <= 0) return toast('株数を入れてや');
+  if (t.price <= 0) return toast('単価を入れてや');
+  if (t.side === 'sell') {
+    const p = computePos(editTradeId).positions.find(x => pKey(x) === pKey(t));
+    const have = p ? p.qty : 0;
+    if (t.qty > have) {
+      alert(`この口座での保有は ${have}株 やで。売り株数が保有を超えとる。\n\n先に「買い」を記録するか、「保有株の登録」でスタート時点の株を登録してな。`);
+      return;
+    }
+  }
+  if (editTradeId) {
+    state.trades = state.trades.map(x => x.id === editTradeId ? t : x);
+    toast('売買を更新したで');
+  } else {
+    state.trades.push(t);
+    toast(t.side === 'sell' ? '売りを記録したで(損益は自動計算や)' : '買いを記録したで');
+  }
+  state.prefs.broker = t.broker; state.prefs.account = t.account;
+  save(); resetTradeForm(); switchView('home');
+}
+function deleteTrade() {
+  if (!editTradeId) return;
+  if (!confirm('この売買記録を削除する?損益・保有も自動で計算し直すで')) return;
+  state.trades = state.trades.filter(x => x.id !== editTradeId);
+  save(); resetTradeForm(); toast('削除したで'); switchView('hist');
+}
+function resetTradeForm() {
+  editTradeId = null;
+  document.getElementById('tDate').value = todayStr();
+  ['tCode','tName','tQty','tPrice','tMemo'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('tFee').value = 0;
+  setSide('buy');
+  setBk('t', state.prefs.broker); setAc('t', state.prefs.account);
+  document.getElementById('tSave').textContent = 'この内容で記録する';
+  document.getElementById('tDelete').style.display = 'none';
+  refreshCalc();
+}
+
+/* ================= 配当フォーム ================= */
+let editDivId = null;
+function saveDiv() {
+  const d = {
+    id: editDivId || uid(),
+    date: document.getElementById('dDate').value,
+    code: document.getElementById('dCode').value.trim(),
+    name: document.getElementById('dName').value.trim(),
+    amount: numv(document.getElementById('dAmount').value),
+    qty: document.getElementById('dQty').value ? numv(document.getElementById('dQty').value) : null,
+    broker: readBk('d'), account: readAc('d'),
+    memo: document.getElementById('dMemo').value.trim(),
+  };
+  if (!d.date) return toast('受取日を入れてや');
+  if (!d.name) return toast('銘柄名を入れてや');
+  if (d.amount <= 0) return toast('受取金額を入れてや');
+  if (editDivId) {
+    state.dividends = state.dividends.map(x => x.id === editDivId ? d : x);
+    toast('配当を更新したで');
+  } else { state.dividends.push(d); toast('配当を記録したで'); }
+  state.prefs.broker = d.broker; state.prefs.account = d.account;
+  save(); resetDivForm(); switchView('home');
+}
+function deleteDiv() {
+  if (!editDivId) return;
+  if (!confirm('この配当記録を削除する?')) return;
+  state.dividends = state.dividends.filter(x => x.id !== editDivId);
+  save(); resetDivForm(); toast('削除したで'); switchView('hist');
+}
+function resetDivForm() {
+  editDivId = null;
+  document.getElementById('dDate').value = todayStr();
+  ['dCode','dName','dAmount','dQty','dMemo'].forEach(id => document.getElementById(id).value = '');
+  setBk('d', state.prefs.broker); setAc('d', state.prefs.account);
+  document.getElementById('dSave').textContent = 'この内容で記録する';
+  document.getElementById('dDelete').style.display = 'none';
+}
+
+/* ================= 優待フォーム ================= */
+let editPerkId = null;
+function savePerk() {
+  const p = {
+    id: editPerkId || uid(),
+    date: document.getElementById('pDate').value,
+    code: document.getElementById('pCode').value.trim(),
+    name: document.getElementById('pName').value.trim(),
+    content: document.getElementById('pContent').value.trim(),
+    amount: numv(document.getElementById('pAmount').value),
+    broker: readBk('p'), account: readAc('p'),
+    memo: document.getElementById('pMemo').value.trim(),
+  };
+  if (!p.date) return toast('受取日を入れてや');
+  if (!p.name) return toast('銘柄名を入れてや');
+  if (p.amount <= 0) return toast('金額換算を入れてや');
+  if (editPerkId) {
+    state.perks = state.perks.map(x => x.id === editPerkId ? p : x);
+    toast('優待を更新したで');
+  } else { state.perks.push(p); toast('優待を記録したで'); }
+  state.prefs.broker = p.broker; state.prefs.account = p.account;
+  save(); resetPerkForm(); switchView('home');
+}
+function deletePerk() {
+  if (!editPerkId) return;
+  if (!confirm('この優待記録を削除する?')) return;
+  state.perks = state.perks.filter(x => x.id !== editPerkId);
+  save(); resetPerkForm(); toast('削除したで'); switchView('hist');
+}
+function resetPerkForm() {
+  editPerkId = null;
+  document.getElementById('pDate').value = todayStr();
+  ['pCode','pName','pContent','pAmount','pMemo'].forEach(id => document.getElementById(id).value = '');
+  setBk('p', state.prefs.broker); setAc('p', state.prefs.account);
+  document.getElementById('pSave').textContent = 'この内容で記録する';
+  document.getElementById('pDelete').style.display = 'none';
+}
+
+/* ================= スタート時点の保有株 ================= */
+function goAddHolding() { editInitId = null; fillInitForm(); switchView('input'); setInputMode('holding'); }
+function editInit(id) {
+  editInitId = id;
+  fillInitForm(state.inits.find(h => h.id === id));
   switchView('input'); setInputMode('holding');
 }
-function fillHoldingForm(h) {
+function fillInitForm(h) {
+  document.getElementById('hCode').value = h ? (h.code || '') : '';
   document.getElementById('hName').value = h ? h.name : '';
   document.getElementById('hQty').value = h ? h.qty : '';
-  document.getElementById('hBuy').value = h ? h.buy : '';
-  document.getElementById('hCur').value = h ? h.cur : '';
+  document.getElementById('hAvg').value = h ? h.avg : '';
+  document.getElementById('hCur').value = h ? (state.curPrices[h.code || h.name] ?? '') : '';
+  setBk('h', h ? h.broker : state.prefs.broker);
+  setAc('h', h ? h.account : state.prefs.account);
   document.getElementById('hSave').textContent = h ? '変更を保存する' : 'この内容で保存する';
   document.getElementById('hDelete').style.display = h ? 'block' : 'none';
 }
-function saveHolding() {
-  const name = document.getElementById('hName').value.trim();
-  const qty = Number(document.getElementById('hQty').value);
-  const buy = Number(document.getElementById('hBuy').value);
-  const cur = Number(document.getElementById('hCur').value);
-  if (!name) return toast('銘柄名を入れてや');
-  if (!qty || qty <= 0) return toast('株数を入れてや');
-  if (!buy || buy <= 0) return toast('取得単価を入れてや');
-  if (!cur || cur <= 0) return toast('現在株価を入れてや');
-  if (editHoldingId) {
-    const h = state.holdings.find(x => x.id === editHoldingId);
-    Object.assign(h, { name, qty, buy, cur });
-    toast('保有銘柄を更新したで');
+function saveInit() {
+  const h = {
+    id: editInitId || uid(),
+    code: document.getElementById('hCode').value.trim(),
+    name: document.getElementById('hName').value.trim(),
+    qty: numv(document.getElementById('hQty').value),
+    avg: numv(document.getElementById('hAvg').value),
+    broker: readBk('h'), account: readAc('h'),
+  };
+  const cur = document.getElementById('hCur').value;
+  if (!h.name) return toast('銘柄名を入れてや');
+  if (h.qty <= 0) return toast('株数を入れてや');
+  if (h.avg <= 0) return toast('平均取得単価を入れてや');
+  if (cur !== '' && numv(cur) > 0) state.curPrices[h.code || h.name] = numv(cur);
+  if (editInitId) {
+    state.inits = state.inits.map(x => x.id === editInitId ? h : x);
+    toast('スタート登録を更新したで');
   } else {
-    state.holdings.push({ id: uid(), name, qty, buy, cur });
-    toast('保有銘柄を追加したで');
+    state.inits.push(h);
+    toast('保有株を登録したで。ここから自動計算やで');
   }
-  save(); editHoldingId = null; fillHoldingForm(); switchView('hold');
+  state.prefs.broker = h.broker; state.prefs.account = h.account;
+  save(); editInitId = null; fillInitForm(); switchView('hold');
 }
-function deleteHolding() {
-  if (!editHoldingId) return;
-  if (!confirm('この銘柄を削除する?')) return;
-  state.holdings = state.holdings.filter(h => h.id !== editHoldingId);
-  save(); editHoldingId = null; fillHoldingForm(); toast('削除したで'); switchView('hold');
+function deleteInit() {
+  if (!editInitId) return;
+  if (!confirm('この登録を削除する?保有・損益も計算し直すで')) return;
+  state.inits = state.inits.filter(x => x.id !== editInitId);
+  save(); editInitId = null; fillInitForm(); toast('削除したで'); switchView('hold');
 }
 
 /* ================= 履歴 ================= */
-let histFilter = 'all', editRecordId = null;
+let histFilter = 'all';
 document.getElementById('histChips').addEventListener('click', e => {
   const b = e.target.closest('.fchip'); if (!b) return;
   histFilter = b.dataset.f;
@@ -534,75 +1015,106 @@ document.getElementById('histChips').addEventListener('click', e => {
 });
 function renderHist() {
   const list = document.getElementById('histList');
-  let recs = [...state.records].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  if (histFilter !== 'all') recs = recs.filter(r => r.type === histFilter);
-  if (!recs.length) {
-    list.innerHTML = `<div class="empty"><b>記録がまだありません</b>「入力」タブから、売却損益・配当・優待を記録できます</div>`;
+  const { realizedByTrade } = computePos();
+  const items = [
+    ...state.trades.map(r => ({ kind: 'trade', r })),
+    ...state.dividends.map(r => ({ kind: 'div', r })),
+    ...state.perks.map(r => ({ kind: 'perk', r })),
+  ].filter(i => histFilter === 'all' || i.kind === histFilter)
+   .sort((a, b) => b.r.date.localeCompare(a.r.date) || b.r.id.localeCompare(a.r.id));
+  if (!items.length) {
+    list.innerHTML = `<div class="empty"><b>記録がまだありません</b>「入力」タブから、売買・配当・優待を記録できます</div>`;
     return;
   }
-  list.innerHTML = recs.map(r => `
-    <div class="item" onclick="editRecord('${r.id}')">
-      <div class="ic ${r.type}">${TYPE_LABEL[r.type]}</div>
+  list.innerHTML = items.map(i => {
+    const r = i.r;
+    const tags = `<span class="tagmini">${esc(r.broker)}</span><span class="tagmini">${esc(r.account)}</span>`;
+    if (i.kind === 'trade') {
+      const isSell = r.side === 'sell';
+      const amtHTML = isSell
+        ? `<div class="amt ${plClass(realizedByTrade[r.id] ?? 0)}">${signYen(realizedByTrade[r.id] ?? 0)}</div><div class="sub-amt">損益(自動計算)</div>`
+        : `<div class="amt pl-zero">${yen(r.qty * r.price + numv(r.fee))}</div><div class="sub-amt">支払額</div>`;
+      return `<div class="item" onclick="editTrade('${r.id}')">
+        <div class="ic ${isSell ? 'sell' : 'buy'}">${isSell ? '売り' : '買い'}</div>
+        <div class="mid"><div class="nm">${esc(r.name)}</div>
+          <div class="dt">${fmtDate(r.date)} ・ ${r.qty.toLocaleString()}株 @${r.price.toLocaleString()}円<br>${tags}${r.memo ? ' ' + esc(r.memo) : ''}</div></div>
+        <div>${amtHTML}</div>
+      </div>`;
+    }
+    if (i.kind === 'div') {
+      return `<div class="item" onclick="editDiv('${r.id}')">
+        <div class="ic div">配当</div>
+        <div class="mid"><div class="nm">${esc(r.name)}</div>
+          <div class="dt">${fmtDate(r.date)}${r.qty ? ' ・ ' + r.qty.toLocaleString() + '株分' : ''}<br>${tags}${r.memo ? ' ' + esc(r.memo) : ''}</div></div>
+        <div class="amt pl-plus">+${yen(r.amount)}</div>
+      </div>`;
+    }
+    return `<div class="item" onclick="editPerk('${r.id}')">
+      <div class="ic perk">優待</div>
       <div class="mid"><div class="nm">${esc(r.name)}</div>
-        <div class="dt">${fmtDate(r.date)}${r.memo ? ' ・ ' + esc(r.memo) : ''}</div></div>
-      <div class="amt ${plClass(r.amount)}">${signYen(r.amount)}</div>
-    </div>`).join('');
+        <div class="dt">${fmtDate(r.date)}${r.content ? ' ・ ' + esc(r.content) : ''}<br>${tags}${r.memo ? ' ' + esc(r.memo) : ''}</div></div>
+      <div class="amt pl-plus">+${yen(r.amount)}</div>
+    </div>`;
+  }).join('');
 }
-function editRecord(id) {
-  editRecordId = id;
-  const r = state.records.find(x => x.id === id);
-  setRecType(r.type);
-  document.getElementById('rDate').value = r.date;
-  document.getElementById('rName').value = r.name;
-  document.getElementById('rAmount').value = r.amount;
-  document.getElementById('rMemo').value = r.memo || '';
-  document.getElementById('rSave').textContent = '変更を保存する';
-  document.getElementById('rDelete').style.display = 'block';
+function editTrade(id) {
+  const r = state.trades.find(x => x.id === id); if (!r) return;
+  editTradeId = id;
+  setRecType('trade'); setSide(r.side);
+  document.getElementById('tDate').value = r.date;
+  document.getElementById('tCode').value = r.code || '';
+  document.getElementById('tName').value = r.name;
+  document.getElementById('tQty').value = r.qty;
+  document.getElementById('tPrice').value = r.price;
+  document.getElementById('tFee').value = r.fee || 0;
+  document.getElementById('tMemo').value = r.memo || '';
+  setBk('t', r.broker); setAc('t', r.account);
+  document.getElementById('tSave').textContent = '変更を保存する';
+  document.getElementById('tDelete').style.display = 'block';
+  switchView('input'); setInputMode('record'); refreshCalc(); updateSellHint();
+}
+function editDiv(id) {
+  const r = state.dividends.find(x => x.id === id); if (!r) return;
+  editDivId = id;
+  setRecType('div');
+  document.getElementById('dDate').value = r.date;
+  document.getElementById('dCode').value = r.code || '';
+  document.getElementById('dName').value = r.name;
+  document.getElementById('dAmount').value = r.amount;
+  document.getElementById('dQty').value = r.qty ?? '';
+  document.getElementById('dMemo').value = r.memo || '';
+  setBk('d', r.broker); setAc('d', r.account);
+  document.getElementById('dSave').textContent = '変更を保存する';
+  document.getElementById('dDelete').style.display = 'block';
   switchView('input'); setInputMode('record');
 }
-function resetRecordForm() {
-  editRecordId = null;
-  document.getElementById('rDate').value = todayStr();
-  document.getElementById('rName').value = '';
-  document.getElementById('rAmount').value = '';
-  document.getElementById('rMemo').value = '';
-  document.getElementById('rSave').textContent = 'この内容で記録する';
-  document.getElementById('rDelete').style.display = 'none';
-}
-function saveRecord() {
-  const date = document.getElementById('rDate').value;
-  const name = document.getElementById('rName').value.trim();
-  const amount = Number(document.getElementById('rAmount').value);
-  const memo = document.getElementById('rMemo').value.trim();
-  if (!date) return toast('日付を入れてや');
-  if (!name) return toast('銘柄名を入れてや');
-  if (!document.getElementById('rAmount').value || isNaN(amount)) return toast('金額を入れてや');
-  if (recType !== 'sell' && amount < 0) return toast('配当・優待はプラスで入れてな');
-  if (editRecordId) {
-    const r = state.records.find(x => x.id === editRecordId);
-    Object.assign(r, { type: recType, date, name, amount, memo });
-    toast('記録を更新したで');
-  } else {
-    state.records.push({ id: uid(), type: recType, date, name, amount, memo });
-    toast(TYPE_LABEL[recType] + 'を記録したで');
-  }
-  save(); resetRecordForm(); switchView('home');
-}
-function deleteRecord() {
-  if (!editRecordId) return;
-  if (!confirm('この記録を削除する?')) return;
-  state.records = state.records.filter(r => r.id !== editRecordId);
-  save(); resetRecordForm(); toast('削除したで'); switchView('hist');
+function editPerk(id) {
+  const r = state.perks.find(x => x.id === id); if (!r) return;
+  editPerkId = id;
+  setRecType('perk');
+  document.getElementById('pDate').value = r.date;
+  document.getElementById('pCode').value = r.code || '';
+  document.getElementById('pName').value = r.name;
+  document.getElementById('pContent').value = r.content || '';
+  document.getElementById('pAmount').value = r.amount;
+  document.getElementById('pMemo').value = r.memo || '';
+  setBk('p', r.broker); setAc('p', r.account);
+  document.getElementById('pSave').textContent = '変更を保存する';
+  document.getElementById('pDelete').style.display = 'block';
+  switchView('input'); setInputMode('record');
 }
 
 /* ================= 入力タブ切替 ================= */
-let recType = 'sell';
+let recType = 'trade';
 document.getElementById('recTypeSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return; setRecType(b.dataset.t);
 });
 function setRecType(t) {
   recType = t;
   document.querySelectorAll('#recTypeSeg button').forEach(x => x.classList.toggle('on', x.dataset.t === t));
+  document.getElementById('formTrade').style.display = t === 'trade' ? 'block' : 'none';
+  document.getElementById('formDiv').style.display = t === 'div' ? 'block' : 'none';
+  document.getElementById('formPerk').style.display = t === 'perk' ? 'block' : 'none';
 }
 document.getElementById('inputModeSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return; setInputMode(b.dataset.m);
@@ -615,7 +1127,7 @@ function setInputMode(m) {
 
 /* ================= 設定 ================= */
 function exportData() {
-  const blob = new Blob([JSON.stringify({ app: 'toshi-daicho', version: 2, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'toshi-daicho', version: 3, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'toshi-daicho-backup-' + todayStr() + '.json';
@@ -628,9 +1140,11 @@ function importData(input) {
   reader.onload = () => {
     try {
       const p = JSON.parse(reader.result);
-      if (!Array.isArray(p.records) || !Array.isArray(p.holdings)) throw new Error();
+      if (!Array.isArray(p.trades)) throw new Error();
       if (!confirm('いまのデータを、このバックアップで置き換える?')) return;
-      state = { records: p.records, holdings: p.holdings };
+      state = { trades: p.trades, dividends: p.dividends || [], perks: p.perks || [],
+        inits: p.inits || [], curPrices: p.curPrices || {},
+        prefs: p.prefs || { broker: 'SBI証券', account: '特定' } };
       save(); renderAll(); toast('データを復元したで');
     } catch (e) { toast('このファイルは読み込めへんかった…'); }
   };
@@ -639,7 +1153,7 @@ function importData(input) {
 function clearAll() {
   if (!confirm('すべてのデータを削除する?元に戻せへんで!')) return;
   if (!confirm('ほんまにええ?最終確認やで')) return;
-  state = { records: [], holdings: [] };
+  state = { trades: [], dividends: [], perks: [], inits: [], curPrices: {}, prefs: { broker: 'SBI証券', account: '特定' } };
   save(); renderAll(); toast('全データを削除したで');
 }
 
@@ -654,7 +1168,11 @@ function switchView(v) {
 }
 document.querySelector('nav.tabs').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.v === 'input') { resetRecordForm(); editHoldingId = null; fillHoldingForm(); setInputMode('record'); }
+  if (b.dataset.v === 'input') {
+    resetTradeForm(); resetDivForm(); resetPerkForm();
+    editInitId = null; fillInitForm();
+    setRecType('trade'); setInputMode('record');
+  }
   switchView(b.dataset.v);
 });
 function renderAll() { renderHome(); renderHold(); renderHist(); }
@@ -664,9 +1182,8 @@ function todayStr() {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-function esc(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
-document.getElementById('rDate').value = todayStr();
+resetTradeForm(); resetDivForm(); resetPerkForm(); fillInitForm();
 renderAll();
 </script>
 </body>
