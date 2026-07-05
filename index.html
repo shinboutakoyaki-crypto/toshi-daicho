@@ -608,7 +608,7 @@ function renderHome() {
   setCard('cRealDiv', c.realDiv);
   const dp = document.getElementById('cDivPerk');
   dp.textContent = yen(c.divPerk); dp.className = 'v'; dp.style.color = 'var(--amber)';
-  document.getElementById('cDivPerkSub').textContent = `配当 ${yen(c.div)} / 優待 ${yen(c.perk)}`;
+  document.getElementById('cDivPerkSub').innerHTML = `配当 ${yen(c.div)}<br>優待 ${yen(c.perk)}`;
   setCard('cTotal', c.total);
 
   renderDonut(c);
