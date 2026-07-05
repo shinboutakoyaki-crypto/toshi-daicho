@@ -340,11 +340,6 @@
     <div class="sec">
       <h2>銘柄別サマリー</h2>
       <input type="text" class="stk-search" id="stkSearch" placeholder="コード・銘柄名で絞り込み" autocomplete="off">
-      <div class="chips" id="stkStatusChips">
-        <button class="fchip on" data-s="all">全て</button>
-        <button class="fchip" data-s="hold">保有中</button>
-        <button class="fchip" data-s="sold">売却済</button>
-      </div>
       <div class="chips" id="stkBrokerChips"></div>
       <div class="stk-bar">
         <div class="stk-count" id="stkCount"></div>
@@ -974,12 +969,6 @@ function stkHistHTML(s) {
 /* --- 操作イベント --- */
 document.getElementById('stkSearch').addEventListener('input', e => {
   stk.q = e.target.value; stk.shown = 20; renderStocks();
-});
-document.getElementById('stkStatusChips').addEventListener('click', e => {
-  const b = e.target.closest('.fchip'); if (!b) return;
-  stk.status = b.dataset.s; stk.shown = 20;
-  document.querySelectorAll('#stkStatusChips .fchip').forEach(x => x.classList.toggle('on', x === b));
-  renderStocks();
 });
 document.getElementById('stkBrokerChips').addEventListener('click', e => {
   const b = e.target.closest('.fchip'); if (!b) return;
