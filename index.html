@@ -132,6 +132,74 @@
   }
   .fchip.on{background:var(--navy);border-color:var(--navy);color:#fff}
 
+  /* ===== 銘柄別サマリー ===== */
+  .stk-search{
+    width:100%;border:1.5px solid var(--line);border-radius:14px;background:#fff;
+    padding:11px 14px;font-size:.92rem;font-family:inherit;color:var(--ink);margin-bottom:10px;
+  }
+  .stk-search:focus{outline:none;border-color:var(--navy2)}
+  .stk-bar{
+    display:flex;justify-content:space-between;align-items:center;
+    margin:2px 2px 10px;gap:8px;
+  }
+  .stk-count{font-size:.72rem;font-weight:700;color:var(--sub)}
+  .stk-count b{color:var(--navy);font-size:.82rem}
+  .stk-count .win{color:var(--plus)}
+  .stk-count .lose{color:var(--minus)}
+  .stk-sort{
+    border:1px solid var(--line);border-radius:10px;background:#fff;
+    padding:6px 8px;font-size:.72rem;font-weight:700;color:var(--sub);font-family:inherit;
+  }
+  .stk-card{
+    background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+    margin-bottom:10px;overflow:hidden;
+  }
+  .stk-head{padding:14px 15px 11px;cursor:pointer}
+  .stk-row1{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+  .stk-code{font-size:.92rem;font-weight:800;color:var(--plus)}
+  .stk-name{font-size:.9rem;font-weight:800;color:var(--ink);flex:1;min-width:40%}
+  .stk-badge{
+    font-size:.62rem;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap;
+  }
+  .stk-badge.hold{color:#0E7A55;background:#DDF3EA}
+  .stk-badge.sold{color:#69748A;background:#E8ECF3}
+  .stk-total{text-align:right;font-size:1.18rem;font-weight:800;margin-top:3px}
+  .stk-boxes{display:flex;gap:8px;margin-top:9px}
+  .stk-box{
+    flex:1;background:#F5F8FC;border:1px solid var(--line);border-radius:12px;
+    padding:9px 10px;min-width:0;
+  }
+  .stk-box .t{font-size:.62rem;font-weight:700;color:var(--sub);margin-bottom:3px;white-space:nowrap}
+  .stk-box .v{font-size:.86rem;font-weight:800;word-break:break-all}
+  .stk-box .p{font-size:.62rem;font-weight:700;color:var(--sub);margin-top:1px}
+  .stk-toggle{
+    text-align:center;font-size:.72rem;font-weight:700;color:var(--sub);
+    padding-top:9px;margin-top:2px;
+  }
+  .stk-hist{display:none;border-top:1px solid var(--line);background:#F8FAFD;padding:9px 12px 11px}
+  .stk-card.open .stk-hist{display:block}
+  .stk-ev{
+    display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:9px 11px;margin-bottom:7px;cursor:pointer;
+  }
+  .stk-ev:last-child{margin-bottom:0}
+  .stk-ev .ev-ic{
+    font-size:.62rem;font-weight:800;color:#fff;border-radius:8px;
+    padding:4px 7px;white-space:nowrap;
+  }
+  .stk-ev .ev-ic.buy{background:var(--icBuy)}
+  .stk-ev .ev-ic.sell{background:var(--icSell)}
+  .stk-ev .ev-ic.div{background:var(--icDiv)}
+  .stk-ev .ev-ic.perk{background:var(--icPerk)}
+  .stk-ev .ev-mid{flex:1;min-width:0}
+  .stk-ev .ev-dt{font-size:.72rem;font-weight:700;color:var(--ink)}
+  .stk-ev .ev-sub{font-size:.62rem;font-weight:600;color:var(--sub);margin-top:1px}
+  .stk-ev .ev-amt{font-size:.82rem;font-weight:800;white-space:nowrap;text-align:right}
+  .stk-ev .ev-amt .lbl{display:block;font-size:.58rem;font-weight:700;color:var(--sub)}
+  .stk-empty{
+    text-align:center;font-size:.72rem;font-weight:700;color:var(--sub);padding:8px 0 4px;
+  }
+
   /* ===== forms ===== */
   .seg{display:flex;background:#E4EAF4;border-radius:12px;padding:4px;margin-bottom:14px}
   .seg button{
@@ -267,6 +335,27 @@
         </div>
         <svg class="bars" id="barChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
       </div>
+    </div>
+
+    <div class="sec">
+      <h2>銘柄別サマリー</h2>
+      <input type="text" class="stk-search" id="stkSearch" placeholder="コード・銘柄名で絞り込み" autocomplete="off">
+      <div class="chips" id="stkStatusChips">
+        <button class="fchip on" data-s="all">全て</button>
+        <button class="fchip" data-s="hold">保有中</button>
+        <button class="fchip" data-s="sold">売却済</button>
+      </div>
+      <div class="chips" id="stkBrokerChips"></div>
+      <div class="stk-bar">
+        <div class="stk-count" id="stkCount"></div>
+        <select class="stk-sort" id="stkSort">
+          <option value="plDesc">総合損益が大きい順</option>
+          <option value="plAsc">損失が大きい順</option>
+          <option value="code">銘柄コード順</option>
+        </select>
+      </div>
+      <div id="stkList"></div>
+      <button class="btn line" id="stkMore" style="display:none">もっと見る</button>
     </div>
   </section>
 
@@ -625,6 +714,7 @@ function renderHome() {
   renderDonut(c);
   renderYears();
   renderBars();
+  renderStocks();
 }
 function setCard(id, v) {
   const el = document.getElementById(id);
@@ -706,6 +796,217 @@ function renderBars() {
 
 /* ================= 保有 ================= */
 let editInitId = null;
+/* ================= 銘柄別サマリー ================= */
+let stk = { q: '', status: 'all', broker: 'all', sort: 'plDesc', shown: 20, open: new Set() };
+
+function stockKeyOf(r) { return r.code || r.name; }
+
+function buildStockSummary() {
+  const inBk = r => stk.broker === 'all' || r.broker === stk.broker;
+  const { all, realizedByTrade } = computePos();
+  const names = knownNames();
+  const map = new Map();
+  const get = (r) => {
+    const key = stockKeyOf(r);
+    let s = map.get(key);
+    if (!s) {
+      s = { key, code: r.code || '', name: '', brokers: new Set(),
+            qty: 0, cost: 0, unreal: 0, realized: 0, hasSell: false,
+            div: 0, perk: 0, holding: false, events: [] };
+      map.set(key, s);
+    }
+    if (r.broker) s.brokers.add(r.broker);
+    const nm = (r.code && names[r.code]) || r.name;
+    if (nm) s.name = nm;
+    return s;
+  };
+  // 保有ポジション(含み損益・保有中の判定)
+  all.forEach(p => {
+    if (!inBk(p)) return;
+    const s = get(p);
+    if (p.qty > 0) {
+      s.holding = true;
+      const cur = curOf(p);
+      s.qty += p.qty;
+      s.cost += p.qty * p.avg;
+      s.unreal += p.qty * ((cur ?? p.avg) - p.avg);
+    }
+  });
+  // 売買(実現損益+履歴イベント)
+  state.trades.forEach(t => {
+    if (!inBk(t)) return;
+    const s = get(t);
+    if (t.side === 'sell') { s.realized += (realizedByTrade[t.id] ?? 0); s.hasSell = true; }
+    s.events.push({ kind: 'trade', r: t });
+  });
+  // 配当・優待
+  state.dividends.forEach(d => {
+    if (!inBk(d)) return;
+    const s = get(d);
+    s.div += numv(d.amount);
+    s.events.push({ kind: 'div', r: d });
+  });
+  state.perks.forEach(p => {
+    if (!inBk(p)) return;
+    const s = get(p);
+    s.perk += numv(p.amount);
+    s.events.push({ kind: 'perk', r: p });
+  });
+  const arr = [...map.values()];
+  arr.forEach(s => {
+    s.divperk = s.div + s.perk;
+    s.total = Math.round(s.unreal) + s.realized + s.divperk;
+    s.events.sort((a, b) => b.r.date.localeCompare(a.r.date) || String(b.r.id).localeCompare(String(a.r.id)));
+  });
+  return arr;
+}
+
+function allBrokers() {
+  const set = new Set();
+  [...state.inits, ...state.trades, ...state.dividends, ...state.perks]
+    .forEach(r => { if (r.broker) set.add(r.broker); });
+  return [...set].sort();
+}
+
+function renderStocks() {
+  // 証券会社チップ(データにある会社だけ自動で出す)
+  const bks = allBrokers();
+  const bkWrap = document.getElementById('stkBrokerChips');
+  if (bks.length >= 2) {
+    if (stk.broker !== 'all' && !bks.includes(stk.broker)) stk.broker = 'all';
+    bkWrap.style.display = 'flex';
+    bkWrap.innerHTML = `<button class="fchip${stk.broker === 'all' ? ' on' : ''}" data-b="all">全口座</button>`
+      + bks.map(b => `<button class="fchip${stk.broker === b ? ' on' : ''}" data-b="${esc(b)}">${esc(b)}</button>`).join('');
+  } else { bkWrap.style.display = 'none'; stk.broker = 'all'; }
+
+  let arr = buildStockSummary();
+  // 状態フィルタ
+  if (stk.status === 'hold') arr = arr.filter(s => s.holding);
+  if (stk.status === 'sold') arr = arr.filter(s => !s.holding);
+  // 検索(コード・銘柄名)
+  const q = stk.q.trim().toLowerCase();
+  if (q) arr = arr.filter(s => (s.code + ' ' + s.name).toLowerCase().includes(q));
+  // 並び替え
+  if (stk.sort === 'plDesc') arr.sort((a, b) => b.total - a.total);
+  else if (stk.sort === 'plAsc') arr.sort((a, b) => a.total - b.total);
+  else arr.sort((a, b) => (a.code || 'zzzz').localeCompare(b.code || 'zzzz') || a.name.localeCompare(b.name, 'ja'));
+
+  // 件数(該当数と勝ち負けの内訳)
+  const win = arr.filter(s => s.total > 0).length, lose = arr.filter(s => s.total < 0).length;
+  document.getElementById('stkCount').innerHTML =
+    `計 <b>${arr.length}</b>銘柄 <span class="win">▲${win}</span> <span class="lose">▼${lose}</span>`;
+
+  const list = document.getElementById('stkList');
+  if (!arr.length) {
+    list.innerHTML = `<div class="empty"><b>該当する銘柄がありません</b>絞り込み条件を変えてみてください</div>`;
+    document.getElementById('stkMore').style.display = 'none';
+    return;
+  }
+  const view = arr.slice(0, stk.shown);
+  list.innerHTML = view.map(s => stkCardHTML(s)).join('');
+  document.getElementById('stkMore').style.display = arr.length > stk.shown ? 'block' : 'none';
+}
+
+function stkCardHTML(s) {
+  const open = stk.open.has(s.key);
+  const tags = [...s.brokers].sort().map(bkTag).join('');
+  const pct = s.holding && s.cost > 0 ? ((s.unreal >= 0 ? '+' : '') + (s.unreal / s.cost * 100).toFixed(2) + '%') : '';
+  const boxes = [];
+  if (s.holding) {
+    boxes.push(`<div class="stk-box"><div class="t">含み損益</div>
+      <div class="v ${plClass(s.unreal)}">${signYen(s.unreal)}</div>
+      ${pct ? `<div class="p">${pct}</div>` : ''}</div>`);
+  }
+  boxes.push(`<div class="stk-box"><div class="t">実現損益</div>
+    <div class="v ${s.hasSell ? plClass(s.realized) : ''}">${s.hasSell ? signYen(s.realized) : '—'}</div></div>`);
+  boxes.push(`<div class="stk-box"><div class="t">配当+優待</div>
+    <div class="v" style="${s.divperk ? 'color:var(--amber)' : ''}">${s.divperk ? yen(s.divperk) : '—'}</div></div>`);
+  return `<div class="stk-card${open ? ' open' : ''}" data-key="${esc(s.key)}">
+    <div class="stk-head">
+      <div class="stk-row1">
+        ${s.code ? `<span class="stk-code">${esc(s.code)}</span>` : ''}${tags}
+        <span class="stk-name">${esc(s.name)}</span>
+        <span class="stk-badge ${s.holding ? 'hold' : 'sold'}">${s.holding ? '保有中' : '売却済'}</span>
+      </div>
+      <div class="stk-total ${plClass(s.total)}">${signYen(s.total)}</div>
+      <div class="stk-boxes">${boxes.join('')}</div>
+      <div class="stk-toggle">${open ? '▲ 閉じる' : '▼ 履歴を見る'}</div>
+    </div>
+    <div class="stk-hist">${open ? stkHistHTML(s) : ''}</div>
+  </div>`;
+}
+
+function stkHistHTML(s) {
+  if (!s.events.length) return `<div class="stk-empty">取引の記録はまだありません(スタート登録のみ)</div>`;
+  const { realizedByTrade } = computePos();
+  return s.events.map(ev => {
+    const r = ev.r;
+    const tag = bkTag(r.broker);
+    if (ev.kind === 'trade') {
+      const isSell = r.side === 'sell';
+      const amt = isSell
+        ? `<div class="ev-amt ${plClass(realizedByTrade[r.id] ?? 0)}">${signYen(realizedByTrade[r.id] ?? 0)}<span class="lbl">損益</span></div>`
+        : `<div class="ev-amt pl-zero">${yen(r.qty * r.price + numv(r.fee))}<span class="lbl">支払額</span></div>`;
+      return `<div class="stk-ev" data-act="trade" data-id="${esc(r.id)}">
+        <span class="ev-ic ${isSell ? 'sell' : 'buy'}">${isSell ? '売り' : '買い'}</span>
+        <div class="ev-mid"><div class="ev-dt">${fmtDate(r.date)}</div>
+          <div class="ev-sub">${tag}${r.qty.toLocaleString()}株 @${r.price.toLocaleString()}円</div></div>
+        ${amt}
+      </div>`;
+    }
+    if (ev.kind === 'div') {
+      return `<div class="stk-ev" data-act="div" data-id="${esc(r.id)}">
+        <span class="ev-ic div">配当</span>
+        <div class="ev-mid"><div class="ev-dt">${fmtDate(r.date)}</div>
+          <div class="ev-sub">${tag}${r.qty ? r.qty.toLocaleString() + '株分' : ''}</div></div>
+        <div class="ev-amt pl-plus">+${yen(r.amount)}</div>
+      </div>`;
+    }
+    return `<div class="stk-ev" data-act="perk" data-id="${esc(r.id)}">
+      <span class="ev-ic perk">優待</span>
+      <div class="ev-mid"><div class="ev-dt">${fmtDate(r.date)}</div>
+        <div class="ev-sub">${tag}${r.content ? esc(r.content) : ''}</div></div>
+      <div class="ev-amt pl-plus">+${yen(r.amount)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* --- 操作イベント --- */
+document.getElementById('stkSearch').addEventListener('input', e => {
+  stk.q = e.target.value; stk.shown = 20; renderStocks();
+});
+document.getElementById('stkStatusChips').addEventListener('click', e => {
+  const b = e.target.closest('.fchip'); if (!b) return;
+  stk.status = b.dataset.s; stk.shown = 20;
+  document.querySelectorAll('#stkStatusChips .fchip').forEach(x => x.classList.toggle('on', x === b));
+  renderStocks();
+});
+document.getElementById('stkBrokerChips').addEventListener('click', e => {
+  const b = e.target.closest('.fchip'); if (!b) return;
+  stk.broker = b.dataset.b; stk.shown = 20; renderStocks();
+});
+document.getElementById('stkSort').addEventListener('change', e => {
+  stk.sort = e.target.value; stk.shown = 20; renderStocks();
+});
+document.getElementById('stkMore').addEventListener('click', () => {
+  stk.shown += 20; renderStocks();
+});
+document.getElementById('stkList').addEventListener('click', e => {
+  const ev = e.target.closest('.stk-ev');
+  if (ev) {
+    const id = ev.dataset.id;
+    if (ev.dataset.act === 'trade') editTrade(id);
+    else if (ev.dataset.act === 'div') editDiv(id);
+    else editPerk(id);
+    return;
+  }
+  const head = e.target.closest('.stk-head');
+  if (!head) return;
+  const key = head.parentElement.dataset.key;
+  if (stk.open.has(key)) stk.open.delete(key); else stk.open.add(key);
+  renderStocks();
+});
+
 function renderHold() {
   const list = document.getElementById('holdList');
   const { positions } = computePos();
