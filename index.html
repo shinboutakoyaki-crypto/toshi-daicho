@@ -131,15 +131,13 @@
     padding:7px 14px;font-size:.78rem;font-weight:700;color:var(--sub);white-space:nowrap;font-family:inherit;
   }
   .fchip.on{background:var(--navy);border-color:var(--navy);color:#fff}
-  .stk-total{background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:14px;
+  .stk-grand{background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:14px;
     padding:14px 16px;margin:0 0 10px;color:#fff;box-shadow:0 4px 14px rgba(18,43,92,.25)}
-  .stk-total .tt{font-size:.68rem;font-weight:700;letter-spacing:.08em;opacity:.78}
-  .stk-total .tv{font-size:1.55rem;font-weight:800;margin-top:2px;letter-spacing:.01em}
-  .stk-total .tv.win{color:#FF9B9B}
-  .stk-total .tv.lose{color:#63E6B6}
-  .stk-total .tb{display:flex;gap:14px;margin-top:9px;font-size:.68rem;opacity:.92;flex-wrap:wrap}
-  .stk-total .tb span{opacity:.75}
-  .stk-total .tb b{font-weight:700;opacity:1}
+  .stk-grand .tt{font-size:.68rem;font-weight:700;letter-spacing:.08em;opacity:.78}
+  .stk-grand .tv{font-size:1.55rem;font-weight:800;margin-top:2px;letter-spacing:.01em;color:#fff}
+  .stk-grand .tb{display:flex;gap:14px;margin-top:9px;font-size:.68rem;opacity:.92;flex-wrap:wrap}
+  .stk-grand .tb span{opacity:.75}
+  .stk-grand .tb b{font-weight:700;opacity:1}
 
   /* ===== 銘柄別サマリー ===== */
   .stk-search{
@@ -348,7 +346,7 @@
 
     <div class="sec">
       <h2>銘柄別サマリー</h2>
-      <div class="stk-total" id="stkTotal" style="display:none"></div>
+      <div class="stk-grand" id="stkTotal" style="display:none"></div>
       <input type="text" class="stk-search" id="stkSearch" placeholder="コード・銘柄名で絞り込み" autocomplete="off">
       <div class="chips" id="stkBrokerChips"></div>
       <div class="stk-bar">
@@ -901,7 +899,7 @@ function renderStocks() {
     totalCard.style.display = 'block';
     totalCard.innerHTML = `
       <div class="tt">${stk.broker === 'all' ? '全口座' : esc(stk.broker)}・全銘柄 総合損益</div>
-      <div class="tv ${sum.total > 0 ? 'win' : sum.total < 0 ? 'lose' : ''}">${sgn(sum.total)}</div>
+      <div class="tv">${sgn(sum.total)}</div>
       <div class="tb">
         <span>実現 <b>${sgn(sum.realized)}</b></span>
         <span>配当・優待 <b>${sgn(sum.divperk)}</b></span>
