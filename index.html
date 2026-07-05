@@ -64,7 +64,7 @@
     border-radius:999px;padding:6px 12px;font-size:.82rem;font-weight:800;
   }
   .chip .pct{font-size:.72rem;font-weight:700;opacity:.85}
-  .chip.up{color:#FFB3B3}.chip.down{color:#9FE8CF}
+  .chip.up{color:#FF7B7B}.chip.down{color:#9FE8CF}
 
   /* ===== cards ===== */
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
@@ -641,7 +641,7 @@ function renderDonut(c) {
     });
   }
   html += `<text x="60" y="55" text-anchor="middle" class="donut-center">受取合計</text>
-           <text x="60" y="72" text-anchor="middle" class="donut-total">${total >= 10000000 ? (total/10000).toFixed(0)+'万' : yen(total)}</text>`;
+           <text x="60" y="72" text-anchor="middle" class="donut-total">${total >= 10000 ? Math.round(total/10000).toLocaleString()+'万' : yen(total)}</text>`;
   svg.innerHTML = html;
   legend.innerHTML = parts.map(p =>
     `<div class="row"><span class="dot" style="background:${p.color}"></span>
