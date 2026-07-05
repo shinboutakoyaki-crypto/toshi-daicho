@@ -131,6 +131,15 @@
     padding:7px 14px;font-size:.78rem;font-weight:700;color:var(--sub);white-space:nowrap;font-family:inherit;
   }
   .fchip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .stk-total{background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:14px;
+    padding:14px 16px;margin:0 0 10px;color:#fff;box-shadow:0 4px 14px rgba(18,43,92,.25)}
+  .stk-total .tt{font-size:.68rem;font-weight:700;letter-spacing:.08em;opacity:.78}
+  .stk-total .tv{font-size:1.55rem;font-weight:800;margin-top:2px;letter-spacing:.01em}
+  .stk-total .tv.win{color:#FF9B9B}
+  .stk-total .tv.lose{color:#63E6B6}
+  .stk-total .tb{display:flex;gap:14px;margin-top:9px;font-size:.68rem;opacity:.92;flex-wrap:wrap}
+  .stk-total .tb span{opacity:.75}
+  .stk-total .tb b{font-weight:700;opacity:1}
 
   /* ===== 銘柄別サマリー ===== */
   .stk-search{
@@ -339,6 +348,7 @@
 
     <div class="sec">
       <h2>銘柄別サマリー</h2>
+      <div class="stk-total" id="stkTotal" style="display:none"></div>
       <input type="text" class="stk-search" id="stkSearch" placeholder="コード・銘柄名で絞り込み" autocomplete="off">
       <div class="chips" id="stkBrokerChips"></div>
       <div class="stk-bar">
@@ -875,9 +885,30 @@ function renderStocks() {
   } else { bkWrap.style.display = 'none'; stk.broker = 'all'; }
 
   let arr = buildStockSummary();
-  // 状態フィルタ
-  if (stk.status === 'hold') arr = arr.filter(s => s.holding);
-  if (stk.status === 'sold') arr = arr.filter(s => !s.holding);
+
+  // 合計カード(証券会社絞りは反映・検索中は非表示)
+  const totalCard = document.getElementById('stkTotal');
+  const searching = !!stk.q.trim();
+  if (searching) {
+    totalCard.style.display = 'none';
+  } else {
+    const sum = { total: 0, realized: 0, divperk: 0, unreal: 0 };
+    arr.forEach(s => {
+      sum.total += s.total; sum.realized += s.realized;
+      sum.divperk += s.divperk; sum.unreal += Math.round(s.unreal);
+    });
+    const sgn = n => (n > 0 ? '+' : n < 0 ? '−' : '±') + yen(n);
+    totalCard.style.display = 'block';
+    totalCard.innerHTML = `
+      <div class="tt">${stk.broker === 'all' ? '全口座' : esc(stk.broker)}・全銘柄 総合損益</div>
+      <div class="tv ${sum.total > 0 ? 'win' : sum.total < 0 ? 'lose' : ''}">${sgn(sum.total)}</div>
+      <div class="tb">
+        <span>実現 <b>${sgn(sum.realized)}</b></span>
+        <span>配当・優待 <b>${sgn(sum.divperk)}</b></span>
+        <span>含み <b>${sgn(sum.unreal)}</b></span>
+      </div>`;
+  }
+
   // 検索(コード・銘柄名)
   const q = stk.q.trim().toLowerCase();
   if (q) arr = arr.filter(s => (s.code + ' ' + s.name).toLowerCase().includes(q));
