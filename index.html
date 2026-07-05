@@ -172,6 +172,9 @@
     display:inline-block;font-size:.6rem;font-weight:800;color:var(--sub);
     background:#EFF3FA;border-radius:6px;padding:2px 7px;margin-right:4px;vertical-align:1px;
   }
+  .tagmini.bk-rakuten{color:#BF0000;background:#FBEAEA}
+  .tagmini.bk-sbi{color:#0B62B0;background:#E7F1FB}
+  .tagmini.bk-matsui{color:#0E8A3E;background:#E8F5EC}
   .curline{
     display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;
     border-top:1px dashed var(--line);width:100%;
@@ -524,6 +527,14 @@ function toast(msg) {
 }
 function fmtDate(d) { const [y, m, dd] = d.split('-'); return `${y}/${Number(m)}/${Number(dd)}`; }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function bkClass(b) {
+  const s = String(b || '');
+  if (s.includes('楽天')) return ' bk-rakuten';
+  if (s.includes('SBI')) return ' bk-sbi';
+  if (s.includes('松井')) return ' bk-matsui';
+  return '';
+}
+function bkTag(b) { return `<span class="tagmini${bkClass(b)}">${esc(b)}</span>`; }
 const numv = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
 
 /* ================= 自動計算エンジン ================= */
@@ -608,7 +619,7 @@ function renderHome() {
   setCard('cRealDiv', c.realDiv);
   const dp = document.getElementById('cDivPerk');
   dp.textContent = yen(c.divPerk); dp.className = 'v'; dp.style.color = 'var(--amber)';
-  document.getElementById('cDivPerkSub').innerHTML = `配当 ${yen(c.div)}<br>優待 ${yen(c.perk)}`;
+  document.getElementById('cDivPerkSub').textContent = `配当 ${yen(c.div)} / 優待 ${yen(c.perk)}`;
   setCard('cTotal', c.total);
 
   renderDonut(c);
@@ -710,7 +721,7 @@ function renderHold() {
         <div class="ic sell">株</div>
         <div class="mid">
           <div class="nm">${esc(p.name)}${p.code ? ` <span style="font-size:.66rem;color:var(--sub);font-weight:700">${esc(p.code)}</span>` : ''}</div>
-          <div class="dt"><span class="tagmini">${esc(p.broker)}</span><span class="tagmini">${esc(p.account)}</span>${p.qty.toLocaleString()}株 ・ 平均@${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円</div>
+          <div class="dt">${bkTag(p.broker)}<span class="tagmini">${esc(p.account)}</span>${p.qty.toLocaleString()}株 ・ 平均@${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円</div>
         </div>
         <div><div class="amt">${yen(ev)}</div>
           ${pl !== null
@@ -1032,7 +1043,7 @@ function renderHist() {
   }
   list.innerHTML = items.map(i => {
     const r = i.r;
-    const tags = `<span class="tagmini">${esc(r.broker)}</span><span class="tagmini">${esc(r.account)}</span>`;
+    const tags = `${bkTag(r.broker)}<span class="tagmini">${esc(r.account)}</span>`;
     if (i.kind === 'trade') {
       const isSell = r.side === 'sell';
       const amtHTML = isSell
