@@ -17,10 +17,19 @@ jobs:
       - name: 株価を取得してprices.jsonを作る
         run: |
           python3 - <<'PYEOF'
-          import json, urllib.request, datetime
+          import json, urllib.request, datetime, os
 
           with open('tickers.json', encoding='utf-8') as f:
               tickers = json.load(f)['tickers']
+
+          # 前回のprices.jsonを読む(前日終値の元ネタにする)
+          old_prices = {}
+          if os.path.exists('prices.json'):
+              try:
+                  with open('prices.json', encoding='utf-8') as f:
+                      old_prices = json.load(f).get('prices', {})
+              except Exception:
+                  old_prices = {}
 
           ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
           prices = {}
@@ -36,8 +45,21 @@ jobs:
                   price = meta.get('regularMarketPrice') or (closes[-1] if closes else None)
                   if price is not None:
                       d = datetime.datetime.fromtimestamp(meta['regularMarketTime'], datetime.timezone.utc)
-                      prices[code] = {'close': round(float(price), 1), 'date': d.strftime('%Y-%m-%d')}
-                      print(f'{code}: {price}')
+                      today = d.strftime('%Y-%m-%d')
+                      close = round(float(price), 1)
+                      # 前日終値を決める:
+                      #   前回保存した日付が今日と違う → 前回のcloseを「前日終値」にする
+                      #   同じ日に再実行された場合     → 前回のprevをそのまま維持(壊さない)
+                      old = old_prices.get(code, {})
+                      if old.get('date') and old.get('date') != today:
+                          prev = old.get('close')
+                      else:
+                          prev = old.get('prev')
+                      entry = {'close': close, 'date': today}
+                      if prev is not None:
+                          entry['prev'] = prev
+                      prices[code] = entry
+                      print(f'{code}: {price} (前日 {prev})')
                   else:
                       print(f'{code}: データなし')
               except Exception as e:
