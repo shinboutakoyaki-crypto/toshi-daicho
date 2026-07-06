@@ -168,6 +168,25 @@
   .stk-badge{
     font-size:.62rem;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap;
   }
+  /* 株価の出所バッジ(自動/手動/未取得) */
+  .price-src{
+    font-size:.58rem;font-weight:800;border-radius:999px;padding:2px 7px;
+    margin-left:5px;vertical-align:middle;white-space:nowrap;letter-spacing:.02em;
+  }
+  .src-auto{background:rgba(36,86,168,.12);color:var(--navy2)}
+  .src-manual{background:rgba(232,161,61,.16);color:#B9791F}
+  .src-none{background:rgba(214,60,60,.12);color:var(--plus)}
+  /* 設定画面:株価ステータスと同期結果 */
+  .price-status{
+    font-size:.78rem;font-weight:700;color:var(--navy);
+    background:rgba(36,86,168,.08);border-radius:10px;padding:9px 12px;line-height:1.5;
+  }
+  .sync-result{
+    margin-top:11px;font-size:.76rem;font-weight:700;border-radius:10px;padding:10px 12px;line-height:1.6;
+  }
+  .sync-ok{background:rgba(46,158,99,.12);color:#1E7A4C}
+  .sync-ng{background:rgba(214,60,60,.12);color:var(--plus)}
+  .sync-run{background:rgba(36,86,168,.10);color:var(--navy2)}
   .stk-badge.hold{color:#0E7A55;background:#DDF3EA}
   .stk-badge.sold{color:#69748A;background:#E8ECF3}
   .stk-total{text-align:right;font-size:1.18rem;font-weight:800;margin-top:3px}
@@ -544,6 +563,27 @@
   <!-- ============ 設定 ============ -->
   <section class="view" id="view-set">
     <div class="sec">
+      <h2>株価の自動取得</h2>
+      <div class="card" style="margin-bottom:10px">
+        <p style="font-size:.78rem;color:var(--sub);font-weight:600;line-height:1.7;margin-bottom:12px">
+          毎晩ロボットが保有銘柄の終値を自動で取ってくるで。下の「最終更新」で、いつの株価かが確認できるんや。</p>
+        <div class="price-status" id="priceUpdated">自動株価:読み込み中…</div>
+        <button class="btn line" onclick="loadAutoPrices();toast('最新の株価を読み込んだで')" style="margin:10px 0 4px">株価を今すぐ再読み込み</button>
+      </div>
+      <div class="card" style="margin-bottom:10px">
+        <p style="font-size:.78rem;color:var(--sub);font-weight:600;line-height:1.7;margin-bottom:10px">
+          <b>銘柄リストの同期</b><br>
+          いま持ってる銘柄を、株価取得ロボットのリストに登録するで。新しい株を買ったら、一度ここで同期しといてな。翌日から自動で株価が取れるようになるんや。</p>
+        <div class="field" style="margin-bottom:10px">
+          <label>合鍵(GitHubトークン)</label>
+          <input type="password" id="ghToken" placeholder="github_pat_ で始まる文字列" autocomplete="off" spellcheck="false">
+        </div>
+        <p class="hint" style="margin-bottom:10px">※合鍵はこのスマホの中だけに保存されるで。他の人には見えへん。</p>
+        <button class="btn" id="syncBtn" onclick="syncTickers()">銘柄リストを今すぐ同期</button>
+        <div class="sync-result" id="syncResult" style="display:none"></div>
+      </div>
+    </div>
+    <div class="sec">
       <h2>バックアップ</h2>
       <div class="card" style="margin-bottom:10px">
         <p style="font-size:.78rem;color:var(--sub);font-weight:600;line-height:1.7;margin-bottom:12px">
@@ -605,6 +645,14 @@ try {
     }
   }
 } catch (e) {}
+/* 自動株価(prices.jsonから読む)。手動のcurPricesとは別メモ帳。保存はしない=毎回最新を取り直す */
+let autoPrices = {};
+let autoPriceInfo = { updated: null, loaded: false };
+/* 株価取得の設定(合鍵など)。localStorageに別キーで保存 */
+const PRICE_CFG_KEY = 'toshi-daicho-price-cfg';
+let priceCfg = { token: '', lastSync: '' };
+try { const c = localStorage.getItem(PRICE_CFG_KEY); if (c) priceCfg = { ...priceCfg, ...JSON.parse(c) }; } catch (e) {}
+function savePriceCfg() { localStorage.setItem(PRICE_CFG_KEY, JSON.stringify(priceCfg)); }
 function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -663,7 +711,23 @@ function computePos(excludeTradeId) {
   });
   return { positions: [...map.values()].filter(p => p.qty > 0), all: [...map.values()], realizedByTrade, realizedList };
 }
-function curOf(p) { const c = state.curPrices[p.code || p.name]; return c ? numv(c) : null; }
+/* 株価を返す。自動(prices.json)を最優先、なければ手動(curPrices)。無ければnull */
+function curOf(p) {
+  const key = p.code || p.name;
+  const a = autoPrices[key];
+  if (a != null && numv(a) > 0) return numv(a);
+  const c = state.curPrices[key];
+  return c ? numv(c) : null;
+}
+/* 株価の出所も一緒に返す('auto'=自動 / 'manual'=手動 / null=無し) */
+function curInfo(p) {
+  const key = p.code || p.name;
+  const a = autoPrices[key];
+  if (a != null && numv(a) > 0) return { price: numv(a), src: 'auto' };
+  const c = state.curPrices[key];
+  if (c && numv(c) > 0) return { price: numv(c), src: 'manual' };
+  return { price: null, src: null };
+}
 function knownNames() {
   const m = {};
   [...state.inits, ...state.trades, ...state.dividends, ...state.perks]
@@ -1032,25 +1096,35 @@ function renderHold() {
     list.innerHTML = `<div class="empty"><b>保有銘柄はまだありません</b>下のボタンから、いま持っている株を登録してみましょう。<br>登録すると売買の自動計算が始まるで</div>`;
   } else {
     list.innerHTML = positions.map(p => {
-      const cur = curOf(p);
+      const info = curInfo(p);
+      const cur = info.price;
       const ev = p.qty * (cur ?? p.avg), pl = cur !== null ? Math.round((cur - p.avg) * p.qty) : null;
       const pct = (cur !== null && p.avg) ? ((cur - p.avg) / p.avg * 100).toFixed(1) : null;
       const priceKey = p.code || p.name;
+      // 株価の出所バッジ
+      const srcBadge = info.src === 'auto'
+        ? `<span class="price-src src-auto">自動</span>`
+        : info.src === 'manual'
+          ? `<span class="price-src src-manual">手動</span>`
+          : `<span class="price-src src-none">⚠未取得</span>`;
+      // 手動欄に表示する値は「手動で入れた値」だけ(自動値は薄字プレースホルダで示す)
+      const manualVal = state.curPrices[priceKey] ?? '';
+      const autoHint = (info.src === 'auto') ? '自動:' + cur.toLocaleString('ja-JP',{maximumFractionDigits:1}) : '任意';
       return `<div class="item pos">
         <div class="ic sell">株</div>
         <div class="mid">
           <div class="nm">${esc(p.name)}${p.code ? ` <span style="font-size:.66rem;color:var(--sub);font-weight:700">${esc(p.code)}</span>` : ''}</div>
           <div class="dt">${bkTag(p.broker)}<span class="tagmini">${esc(p.account)}</span>${p.qty.toLocaleString()}株 ・ 平均@${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円</div>
         </div>
-        <div><div class="amt">${yen(ev)}</div>
+        <div><div class="amt">${yen(ev)} ${srcBadge}</div>
           ${pl !== null
             ? `<div class="sub-amt ${plClass(pl)}" style="font-weight:800">${signYen(pl)}(${pl>=0?'+':''}${pct}%)</div>`
-            : `<div class="sub-amt">株価未入力</div>`}</div>
+            : `<div class="sub-amt">株価未取得</div>`}</div>
         <div class="curline">
-          <span class="lb">現在株価</span>
-          <input type="number" inputmode="decimal" value="${cur ?? ''}" placeholder="任意"
+          <span class="lb">手動株価</span>
+          <input type="number" inputmode="decimal" value="${manualVal}" placeholder="${esc(autoHint)}"
             onchange="setCurPrice('${esc(priceKey)}', this.value)">
-          <span class="lb" style="margin-left:auto">入れると含み損益が出るで</span>
+          <span class="lb" style="margin-left:auto">${info.src === 'auto' ? '自動優先中(手で上書きも可)' : '入れると含み損益が出るで'}</span>
         </div>
         ${p.warn ? `<div class="warnline">⚠ 売り株数が記録上の保有を超えとるで。スタート登録や買いの記録を確認してな</div>` : ''}
       </div>`;
@@ -1460,6 +1534,120 @@ function setInputMode(m) {
 }
 
 /* ================= 設定 ================= */
+
+/* ---- 株価:銘柄リストの同期(GitHub API) ---- */
+const GH_OWNER = 'shinboutakoyaki-crypto';
+const GH_REPO = 'toshi-daicho';
+const GH_PATH = 'tickers.json';
+
+/* 保有銘柄からティッカー(4桁コード)を集める。コードが無い銘柄は自動取得できないので除外 */
+function collectTickers() {
+  const { positions } = computePos();
+  const set = new Set();
+  positions.forEach(p => {
+    const code = String(p.code || '').trim();
+    if (/^[0-9]{4}$/.test(code)) set.add(code);  // 4桁数字コードのみ
+  });
+  return [...set].sort();
+}
+
+/* 同期結果を画面に表示する小道具 */
+function showSync(kind, msg) {
+  const el = document.getElementById('syncResult');
+  if (!el) return;
+  el.style.display = 'block';
+  el.className = 'sync-result ' + (kind === 'ok' ? 'sync-ok' : kind === 'ng' ? 'sync-ng' : 'sync-run');
+  el.innerHTML = msg;
+}
+
+async function syncTickers() {
+  const btn = document.getElementById('syncBtn');
+  const token = document.getElementById('ghToken').value.trim();
+
+  // 入力チェック
+  if (!token) { showSync('ng', '⚠ 合鍵(トークン)が入力されてへんで。GitHubで作った github_pat_ で始まる文字列を貼り付けてな。'); return; }
+  if (!token.startsWith('github_pat_') && !token.startsWith('ghp_')) {
+    showSync('ng', '⚠ 合鍵の形が違うみたいや。「github_pat_」で始まる文字列を貼り付けてな。'); return;
+  }
+
+  const tickers = collectTickers();
+  if (!tickers.length) { showSync('ng', '⚠ 同期できる銘柄コード(4桁)が保有に無いで。まず保有銘柄を登録してな。'); return; }
+
+  // 合鍵を保存(次回から入力不要)
+  priceCfg.token = token; savePriceCfg();
+
+  btn.disabled = true;
+  showSync('run', '⏳ GitHubに送信中…');
+
+  const apiBase = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+  const headers = {
+    'Authorization': 'Bearer ' + token,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+
+  try {
+    // 1) 今のtickers.jsonのSHA(更新に必要な合言葉)を取得。無ければ新規作成扱い
+    let sha = null;
+    const getRes = await fetch(apiBase + '?t=' + Date.now(), { headers, cache: 'no-store' });
+    if (getRes.status === 200) {
+      const cur = await getRes.json();
+      sha = cur.sha;
+    } else if (getRes.status === 401) {
+      throw new Error('合鍵が無効か期限切れみたいや。GitHubで作り直して貼り直してな。');
+    } else if (getRes.status === 403) {
+      throw new Error('権限が足りひんみたいや。合鍵のContents権限が「Read and write」になってるか確認してな。');
+    } else if (getRes.status === 404) {
+      sha = null; // ファイルがまだ無い→新規作成
+    } else if (getRes.status !== 200) {
+      // その他は続行不可
+      throw new Error('GitHubからの応答が想定外やった(コード ' + getRes.status + ')。');
+    }
+
+    // 2) 新しい中身を作る
+    const bodyObj = { tickers };
+    const content = JSON.stringify(bodyObj, null, 2) + '\n';
+    // UTF-8対応のBase64エンコード
+    const b64 = btoa(unescape(encodeURIComponent(content)));
+
+    const putBody = {
+      message: '銘柄リスト同期(アプリから)',
+      content: b64,
+      committer: { name: 'toshi-daicho-app', email: 'app@users.noreply.github.com' },
+    };
+    if (sha) putBody.sha = sha;
+
+    // 3) 書き込み
+    const putRes = await fetch(apiBase, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(putBody),
+    });
+
+    if (putRes.status === 200 || putRes.status === 201) {
+      priceCfg.lastSync = new Date().toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      savePriceCfg();
+      showSync('ok', '✅ ' + tickers.length + '銘柄を同期したで(' + priceCfg.lastSync + ')<br>'
+        + '<span style="font-weight:600;font-size:.72rem">明日の夕方には、新しい銘柄の株価も自動で取れるようになるで。</span>');
+    } else if (putRes.status === 401) {
+      throw new Error('合鍵が無効か期限切れみたいや。GitHubで作り直して貼り直してな。');
+    } else if (putRes.status === 403) {
+      throw new Error('権限が足りひんみたいや。合鍵のContents権限が「Read and write」か確認してな。');
+    } else if (putRes.status === 409) {
+      throw new Error('タイミングがぶつかったみたいや。もう一回押してみてな。');
+    } else {
+      const errData = await putRes.json().catch(() => ({}));
+      throw new Error('書き込みに失敗したで(コード ' + putRes.status + ')。' + (errData.message ? '(' + errData.message + ')' : ''));
+    }
+  } catch (e) {
+    // 通信そのものが失敗した場合(ネット未接続など)も拾う
+    const msg = (e && e.message) ? e.message : '不明なエラーが起きたで。';
+    showSync('ng', '❌ 同期に失敗したで。<br><span style="font-weight:600;font-size:.72rem">' + esc(msg) + '</span>');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function exportData() {
   const blob = new Blob([JSON.stringify({ app: 'toshi-daicho', version: 3, exportedAt: new Date().toISOString(), ...state }, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -1498,6 +1686,18 @@ function switchView(v) {
   if (v === 'home') renderHome();
   if (v === 'hold') renderHold();
   if (v === 'hist') renderHist();
+  if (v === 'set') {
+    // 保存済みの合鍵を復元し、株価の最終更新を表示
+    const tk = document.getElementById('ghToken');
+    if (tk && priceCfg.token) tk.value = priceCfg.token;
+    updatePriceStatusLabel();
+    const sr = document.getElementById('syncResult');
+    if (sr && priceCfg.lastSync) {
+      sr.style.display = 'block';
+      sr.className = 'sync-result sync-ok';
+      sr.innerHTML = '前回の同期:' + esc(priceCfg.lastSync);
+    }
+  }
   window.scrollTo(0, 0);
 }
 document.querySelector('nav.tabs').addEventListener('click', e => {
@@ -1511,6 +1711,43 @@ document.querySelector('nav.tabs').addEventListener('click', e => {
 });
 function renderAll() { renderHome(); renderHold(); renderHist(); }
 
+/* ================= 自動株価の取り込み ================= */
+/* 自分のリポジトリのprices.jsonを読む。同一リポジトリ内なのでCORSの問題は起きない。
+   キャッシュ回避のため末尾に時刻を付ける */
+async function loadAutoPrices() {
+  const url = 'prices.json?t=' + Date.now();
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const next = {};
+    const prices = data.prices || {};
+    for (const code in prices) {
+      const v = prices[code] && prices[code].close;
+      if (v != null && !isNaN(Number(v))) next[code] = Number(v);
+    }
+    autoPrices = next;
+    autoPriceInfo = { updated: data.updated || null, loaded: true };
+  } catch (e) {
+    // prices.jsonがまだ無い/読めない場合は自動株価なしで続行(手動値は生きる)
+    autoPrices = {};
+    autoPriceInfo = { updated: null, loaded: false };
+  }
+  renderAll();
+  updatePriceStatusLabel();
+}
+/* 設定画面に「最終更新」を表示する。要素が無い画面では何もしない */
+function updatePriceStatusLabel() {
+  const el = document.getElementById('priceUpdated');
+  if (!el) return;
+  if (autoPriceInfo.loaded && autoPriceInfo.updated) {
+    const cnt = Object.keys(autoPrices).length;
+    el.textContent = '自動株価:' + autoPriceInfo.updated.replace('T', ' ') + '(' + cnt + '銘柄)';
+  } else {
+    el.textContent = '自動株価:まだ取得できていません';
+  }
+}
+
 /* ================= 初期化 ================= */
 function todayStr() {
   const d = new Date();
@@ -1519,6 +1756,7 @@ function todayStr() {
 document.getElementById('todayLabel').textContent = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
 resetTradeForm(); resetDivForm(); resetPerkForm(); fillInitForm();
 renderAll();
+loadAutoPrices();  // 起動時にGitHubのprices.jsonを読んで自動株価を反映
 </script>
 </body>
 </html>
