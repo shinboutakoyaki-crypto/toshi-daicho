@@ -1728,6 +1728,16 @@ async function loadAutoPrices() {
     }
     autoPrices = next;
     autoPriceInfo = { updated: data.updated || null, loaded: true };
+    // 方式X:自動で取れた銘柄は、手動欄(curPrices)にも同じ値を書き込んで表示を揃える。
+    // 自動で取れなかった銘柄の手動値には触れない(せっかく手入力した値を消さないため)。
+    let changed = false;
+    for (const code in next) {
+      if (state.curPrices[code] !== next[code]) {
+        state.curPrices[code] = next[code];
+        changed = true;
+      }
+    }
+    if (changed) save();
   } catch (e) {
     // prices.jsonがまだ無い/読めない場合は自動株価なしで続行(手動値は生きる)
     autoPrices = {};
