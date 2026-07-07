@@ -118,6 +118,7 @@
   .item .dt{font-size:.7rem;color:var(--sub);font-weight:600;margin-top:2px}
   .item .amt{font-size:.95rem;font-weight:800;text-align:right}
   .item .sub-amt{font-size:.68rem;color:var(--sub);font-weight:600;text-align:right;margin-top:2px}
+  .item .sub-amt.pl-plus{color:var(--plus)}.item .sub-amt.pl-minus{color:var(--minus)}.item .sub-amt.pl-zero{color:var(--ink)}
   .item .day-diff{font-size:.66rem;font-weight:700;text-align:right;margin-top:3px}
   .item .day-diff .dl{font-size:.6rem;color:var(--sub);font-weight:700;margin-right:3px}
   .item .day-diff.na{color:var(--sub);opacity:.6}
@@ -733,21 +734,26 @@ function computePos(excludeTradeId) {
   });
   return { positions: [...map.values()].filter(p => p.qty > 0), all: [...map.values()], realizedByTrade, realizedList };
 }
-/* 株価を返す。自動(prices.json)を最優先、なければ手動(curPrices)。無ければnull */
+/* 株価を返す。手動欄(curPrices)を先に見る=手打ちがあればその場で効く。無ければ自動(prices.json)。無ければnull。
+   ※自動読み込み時にcurPricesへ自動値をコピーしてるので、普段はcurPrices=自動値。手で書き換えたときだけ差が出る */
 function curOf(p) {
   const key = p.code || p.name;
-  const a = autoPrices[key];
-  if (a != null && numv(a) > 0) return numv(a);
   const c = state.curPrices[key];
-  return c ? numv(c) : null;
+  if (c != null && numv(c) > 0) return numv(c);
+  const a = autoPrices[key];
+  return (a != null && numv(a) > 0) ? numv(a) : null;
 }
-/* 株価の出所も一緒に返す('auto'=自動 / 'manual'=手動 / null=無し) */
+/* 株価の出所も一緒に返す。curPricesの値が自動値と一致してれば'auto'、違えば手で直した'manual'扱い */
 function curInfo(p) {
   const key = p.code || p.name;
   const a = autoPrices[key];
-  if (a != null && numv(a) > 0) return { price: numv(a), src: 'auto' };
+  const hasA = (a != null && numv(a) > 0);
   const c = state.curPrices[key];
-  if (c && numv(c) > 0) return { price: numv(c), src: 'manual' };
+  if (c != null && numv(c) > 0) {
+    const src = (hasA && numv(a) === numv(c)) ? 'auto' : 'manual';
+    return { price: numv(c), src };
+  }
+  if (hasA) return { price: numv(a), src: 'auto' };
   return { price: null, src: null };
 }
 function knownNames() {
@@ -1154,16 +1160,14 @@ function holdCardHTML(r) {
   const dayHTML = (dayAmt !== null)
     ? `<div class="day-diff ${plClass(dayAmt)}"><span class="dl">前日比</span>${signYen(dayAmt)}(${dayPct >= 0 ? '+' : '−'}${Math.abs(dayPct).toFixed(1)}%)</div>`
     : `<div class="day-diff na"><span class="dl">前日比</span>—</div>`;
-  // 自動で株価が取れてる銘柄は入力欄を隠す。手動が要る銘柄だけ最小限で残す
-  let inputHTML = '';
-  if (info.src !== 'auto') {
-    const manualVal = state.curPrices[key] ?? '';
-    inputHTML = `<div class="curline">
+  // 全銘柄で株価の箱を出す。自動銘柄は自動値が最初から入ってる(裏でcurPricesへ同期済み)。
+  // 手で書き換えたら、その場ではその値が効く(翌日の自動読み込みでまた自動値に戻る)。
+  const boxVal = state.curPrices[key] ?? autoPrices[key] ?? '';
+  const inputHTML = `<div class="curline">
       <span class="lb">株価</span>
-      <input type="number" inputmode="decimal" value="${manualVal}" placeholder="株価を入力"
+      <input type="number" inputmode="decimal" value="${boxVal}" placeholder="株価を入力"
         onchange="setCurPrice('${esc(key)}', this.value)">
     </div>`;
-  }
   return `<div class="item pos">
     <div class="ic sell">株</div>
     <div class="mid">
