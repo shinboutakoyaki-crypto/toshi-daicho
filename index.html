@@ -142,6 +142,9 @@
   .stk-grand .tb{display:flex;gap:14px;margin-top:9px;font-size:.68rem;opacity:.92;flex-wrap:wrap}
   .stk-grand .tb span{opacity:.75}
   .stk-grand .tb b{font-weight:700;opacity:1}
+  /* 青背景カードの上では、含み損益を明るい色にして見やすくする */
+  .stk-grand .pl-plus{color:#FF8A8A}
+  .stk-grand .pl-minus{color:#7FE3C4}
 
   /* ===== 銘柄別サマリー ===== */
   .stk-search{
@@ -356,8 +359,15 @@
   .cal-cell.has:active{background:#E8EEF8}
   .cal-dnum{font-size:.82rem;font-weight:700;color:var(--ink);line-height:1.2}
   .cal-dnum.sun{color:var(--plus)}.cal-dnum.sat{color:var(--sky)}
-  .cal-amt{font-size:.62rem;font-weight:800;margin-top:auto;line-height:1.1;text-align:center;letter-spacing:-.02em}
+  .cal-bot{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:2px;width:100%}
+  .cal-amt{font-size:.62rem;font-weight:800;line-height:1.1;text-align:center;letter-spacing:-.02em}
   .cal-amt.pl-plus{color:var(--plus)}.cal-amt.pl-minus{color:var(--minus)}
+  .cal-dots{display:flex;gap:3px;justify-content:center}
+  .cal-dot{width:6px;height:6px;border-radius:50%}
+  .cal-dot.buy{background:var(--icBuy)}   /* 買い=青 */
+  .cal-dot.sell{background:var(--icSell)}  /* 売り=赤 */
+  .cal-cell.sel .cal-dot.buy{background:#8FB4FF}
+  .cal-cell.sel .cal-dot.sell{background:#FF9C9C}
   .cal-cell.today .cal-dnum{background:var(--navy2);color:#fff;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;margin-bottom:1px}
   .cal-cell.sel{background:var(--navy)}
   .cal-cell.sel .cal-dnum,.cal-cell.sel .cal-amt{color:#fff!important}
@@ -371,6 +381,7 @@
   .cal-dtag{font-size:.62rem;font-weight:800;padding:3px 8px;border-radius:6px;color:#fff;white-space:nowrap}
   .cal-dtag.real{background:var(--plus)}.cal-dtag.rmin{background:var(--minus)}
   .cal-dtag.div{background:var(--icDiv)}.cal-dtag.perk{background:var(--icPerk)}
+  .cal-dtag.buy{background:var(--icBuy)}.cal-dtag.sell{background:var(--icSell)}
   .cal-dnm{flex:1;font-size:.8rem;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cal-dmid{flex:1;min-width:0}
   .cal-dmid .nm{font-size:.8rem;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -917,7 +928,7 @@ function renderHome() {
   setCard('cRealDiv', c.realDiv);
   const dp = document.getElementById('cDivPerk');
   dp.textContent = yen(c.divPerk); dp.className = 'v'; dp.style.color = 'var(--amber)';
-  document.getElementById('cDivPerkSub').textContent = `配当 ${yen(c.div)} / 優待 ${yen(c.perk)}`;
+  document.getElementById('cDivPerkSub').innerHTML = `配当 ${yen(c.div)}<br>優待 ${yen(c.perk)}`;
   setCard('cTotal', c.total);
 
   renderDonut(c);
@@ -2136,10 +2147,23 @@ function calEventsByDate() {
   state.perks.forEach(r => push(r.date, 'perk', r.name, numv(r.amount)));
   return map;
 }
+/* その日ごとの売買(買い・売り)を日付キーで集める。カレンダーのマークと明細に使う */
+function calTradesByDate() {
+  const map = {};
+  state.trades.forEach(t => {
+    if (!t.date) return;
+    (map[t.date] ||= []).push({
+      side: t.side, name: t.name || '(名称なし)',
+      qty: numv(t.qty), price: numv(t.price)
+    });
+  });
+  return map;
+}
 function renderCalendar() {
   const now = new Date();
   if (calYear == null) { calYear = now.getFullYear(); calMonth = now.getMonth() + 1; }
   const byDate = calEventsByDate();
+  const byTrade = calTradesByDate();
   const prefix = `${calYear}-${calPad(calMonth)}-`;
 
   // 月間サマリー(実現損益 / 配当+優待 / 合計)
@@ -2165,6 +2189,7 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = prefix + calPad(d);
     const evs = byDate[dateStr];
+    const trs = byTrade[dateStr];
     const dow = new Date(calYear, calMonth - 1, d).getDay();
     const dowCls = dow === 0 ? 'sun' : dow === 6 ? 'sat' : '';
     let amtHtml = '';
@@ -2172,9 +2197,18 @@ function renderCalendar() {
       const net = evs.reduce((s, e) => s + e.amount, 0);
       amtHtml = `<div class="cal-amt ${plClass(net)}">${calCompact(net)}</div>`;
     }
-    const cls = ['cal-cell', evs ? 'has' : '', dateStr === todayStr ? 'today' : ''].filter(Boolean).join(' ');
-    const click = evs ? ` onclick="showCalDay('${dateStr}')"` : '';
-    cells += `<div class="${cls}" data-d="${dateStr}"${click}><div class="cal-dnum ${dowCls}">${d}</div>${amtHtml}</div>`;
+    // 売買があった日は、買い=青・売り=赤の小さなドットを付ける
+    let dotHtml = '';
+    if (trs && trs.length) {
+      const hasBuy = trs.some(t => t.side === 'buy');
+      const hasSell = trs.some(t => t.side === 'sell');
+      dotHtml = `<div class="cal-dots">${hasBuy ? '<span class="cal-dot buy"></span>' : ''}${hasSell ? '<span class="cal-dot sell"></span>' : ''}</div>`;
+    }
+    const botHtml = (amtHtml || dotHtml) ? `<div class="cal-bot">${amtHtml}${dotHtml}</div>` : '';
+    const hasAny = (evs && evs.length) || (trs && trs.length);
+    const cls = ['cal-cell', hasAny ? 'has' : '', dateStr === todayStr ? 'today' : ''].filter(Boolean).join(' ');
+    const click = hasAny ? ` onclick="showCalDay('${dateStr}')"` : '';
+    cells += `<div class="${cls}" data-d="${dateStr}"${click}><div class="cal-dnum ${dowCls}">${d}</div>${botHtml}</div>`;
   }
   document.getElementById('calDays').innerHTML = cells;
   document.getElementById('calDetail').style.display = 'none';
@@ -2182,9 +2216,21 @@ function renderCalendar() {
 /* 日付タップ → その日の内訳を開く */
 function showCalDay(dateStr) {
   const evs = calEventsByDate()[dateStr] || [];
+  const trs = calTradesByDate()[dateStr] || [];
   const [y, m, d] = dateStr.split('-').map(Number);
   const net = evs.reduce((s, e) => s + e.amount, 0);
   const label = { real: '実現損益', div: '配当', perk: '優待' };
+  // 売買の明細(何を買った・売った)を先に表示する
+  const tradeRows = trs.map(t => {
+    const cls = t.side === 'buy' ? 'buy' : 'sell';
+    const lbl = t.side === 'buy' ? '買' : '売';
+    const amt = Math.round(t.qty * t.price);
+    const sub = `${t.qty.toLocaleString('ja-JP')}株 @${yen(t.price)}`;
+    return `<div class="cal-drow">
+      <span class="cal-dtag ${cls}">${lbl}</span>
+      <div class="cal-dmid"><div class="nm">${esc(t.name)}</div><div class="dt">${sub}</div></div>
+      <span class="cal-dval">${yen(amt)}</span></div>`;
+  }).join('');
   const rows = evs.map(e => {
     const tagCls = e.type === 'div' ? 'div' : e.type === 'perk' ? 'perk' : (e.amount < 0 ? 'rmin' : 'real');
     const valTxt = e.type === 'real' ? signYen(e.amount) : '+' + yen(e.amount);
@@ -2194,12 +2240,16 @@ function showCalDay(dateStr) {
       <span class="cal-dnm">${esc(e.name)}</span>
       <span class="cal-dval ${valCls}">${valTxt}</span></div>`;
   }).join('');
+  const totHtml = evs.length
+    ? `<div class="cal-dtot"><span class="lbl">この日の損益合計</span><span class="v ${plClass(net)}">${signYen(net)}</span></div>`
+    : '';
+  const body = (tradeRows + rows) || '<div class="cal-empty">この日の記録はありません</div>';
   const detail = document.getElementById('calDetail');
   detail.innerHTML = `<div class="cal-detail-card">
     <div class="cal-detail-h"><span>${y}年${m}月${d}日</span>
       <button class="cal-detail-close" onclick="closeCalDay()">閉じる ✕</button></div>
-    ${rows || '<div class="cal-empty">この日の記録はありません</div>'}
-    <div class="cal-dtot"><span class="lbl">この日の合計</span><span class="v ${plClass(net)}">${signYen(net)}</span></div></div>`;
+    ${body}
+    ${totHtml}</div>`;
   detail.style.display = 'block';
   document.querySelectorAll('#calDays .cal-cell').forEach(c => c.classList.toggle('sel', c.dataset.d === dateStr));
   detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
