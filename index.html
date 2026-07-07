@@ -145,6 +145,15 @@
   /* 青背景カードの上では、含み損益を明るい色にして見やすくする */
   .stk-grand .pl-plus{color:#FF8A8A}
   .stk-grand .pl-minus{color:#7FE3C4}
+  /* 評価額の下に出す「前日比」(株アプリ風) */
+  .stk-grand .stk-day{display:flex;align-items:baseline;flex-wrap:wrap;gap:7px;margin-top:5px}
+  .stk-grand .stk-day .dl{font-size:.66rem;font-weight:700;opacity:.66;letter-spacing:.04em}
+  .stk-grand .stk-day .dv{font-size:1.1rem;font-weight:800;letter-spacing:.01em}
+  .stk-grand .stk-day .dp{font-size:.82rem;font-weight:700;opacity:.92}
+  .stk-grand .stk-day .dn{font-size:.62rem;font-weight:700;opacity:.6;background:rgba(255,255,255,.14);padding:2px 7px;border-radius:999px}
+  .stk-grand .stk-day.pl-plus .dv,.stk-grand .stk-day.pl-plus .dp{color:#FF8A8A}
+  .stk-grand .stk-day.pl-minus .dv,.stk-grand .stk-day.pl-minus .dp{color:#7FE3C4}
+  .stk-grand .stk-day.na .dv{font-size:.9rem;font-weight:700;opacity:.62}
 
   /* ===== 銘柄別サマリー ===== */
   .stk-search{
@@ -1380,13 +1389,36 @@ function renderHold() {
     sumEl.style.display = 'none';
   } else {
     let evT = 0, costT = 0;
-    rows.forEach(r => { evT += r.ev; costT += r.cost; });
+    let dayAmtSum = 0, prevEvSum = 0, dayCount = 0;
+    rows.forEach(r => {
+      evT += r.ev; costT += r.cost;
+      // 前日終値が取れてる銘柄だけ、前日比を積み上げる
+      if (r.dayAmt !== null && r.dayAmt !== undefined) {
+        dayAmtSum += r.dayAmt;
+        prevEvSum += (r.ev - r.dayAmt); // = 前日終値 × 株数(前日の評価額)
+        dayCount++;
+      }
+    });
     const un = Math.round(evT - costT);
     const unPct = costT > 0 ? (un / costT * 100) : 0;
+    // 前日比の表示。まだ1銘柄も揃ってないときは「集計中」
+    let dayHtml;
+    if (dayCount > 0) {
+      const dayPctAll = prevEvSum > 0 ? (dayAmtSum / prevEvSum * 100) : 0;
+      const note = dayCount < rows.length ? `<span class="dn">${dayCount}銘柄分</span>` : '';
+      dayHtml = `<div class="stk-day ${plClass(dayAmtSum)}">
+        <span class="dl">前日比</span>
+        <span class="dv">${signYen(dayAmtSum)}</span>
+        <span class="dp">(${dayAmtSum >= 0 ? '+' : '−'}${Math.abs(dayPctAll).toFixed(2)}%)</span>
+        ${note}</div>`;
+    } else {
+      dayHtml = `<div class="stk-day na"><span class="dl">前日比</span><span class="dv">集計中…</span></div>`;
+    }
     sumEl.style.display = 'block';
     sumEl.innerHTML = `
       <div class="tt">${holdState.broker === 'all' ? '全口座' : esc(holdState.broker)}・保有評価額</div>
       <div class="tv">${yen(Math.round(evT))}</div>
+      ${dayHtml}
       <div class="tb">
         <span>取得 <b>${yen(Math.round(costT))}</b></span>
         <span>含み損益 <b class="${plClass(un)}">${signYen(un)}(${un >= 0 ? '+' : '−'}${Math.abs(unPct).toFixed(1)}%)</b></span>
