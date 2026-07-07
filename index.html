@@ -1806,13 +1806,13 @@ const GH_OWNER = 'shinboutakoyaki-crypto';
 const GH_REPO = 'toshi-daicho';
 const GH_PATH = 'tickers.json';
 
-/* 保有銘柄からティッカー(4桁コード)を集める。コードが無い銘柄は自動取得できないので除外 */
+/* 保有銘柄からティッカー(英数字4文字コード)を集める。コードが無い銘柄は自動取得できないので除外 */
 function collectTickers() {
   const { positions } = computePos();
   const set = new Set();
   positions.forEach(p => {
     const code = String(p.code || '').trim();
-    if (/^[0-9]{4}$/.test(code)) set.add(code);  // 4桁数字コードのみ
+    if (/^(?=.*[0-9])[0-9A-Za-z]{4}$/.test(code)) set.add(code);  // 4桁の英数字コード(3350・5401、402Aみたいな新形式も。数字が最低1個は必要)
   });
   return [...set].sort();
 }
@@ -1837,7 +1837,7 @@ async function syncTickers() {
   }
 
   const tickers = collectTickers();
-  if (!tickers.length) { showSync('ng', '⚠ 同期できる銘柄コード(4桁)が保有に無いで。まず保有銘柄を登録してな。'); return; }
+  if (!tickers.length) { showSync('ng', '⚠ 同期できる銘柄コード(英数字4文字)が保有に無いで。まず保有銘柄を登録してな。'); return; }
 
   // 合鍵を保存(次回から入力不要)
   priceCfg.token = token; savePriceCfg();
