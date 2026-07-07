@@ -688,7 +688,8 @@
         <p style="font-size:.78rem;color:var(--sub);font-weight:600;line-height:1.7;margin-bottom:12px">
           毎晩ロボットが保有銘柄の終値を自動で取ってくるで。下の「最終更新」で、いつの株価かが確認できるんや。</p>
         <div class="price-status" id="priceUpdated">自動株価:読み込み中…</div>
-        <button class="btn line" onclick="loadAutoPrices();toast('最新の株価を読み込んだで')" style="margin:10px 0 4px">株価を今すぐ再読み込み</button>
+        <button class="btn" id="fetchNowBtn" onclick="fetchPricesNow()" style="margin:10px 0 4px">🤖 今すぐ株価を取ってくる</button>
+        <div id="fetchNowResult" class="sync-result" style="display:none"></div>
       </div>
       <div class="card" style="margin-bottom:10px">
         <p style="font-size:.78rem;color:var(--sub);font-weight:600;line-height:1.7;margin-bottom:10px">
@@ -1911,6 +1912,121 @@ async function syncTickers() {
   } finally {
     btn.disabled = false;
   }
+}
+
+/* ---- 株価:ロボットを今すぐ起こして最新株価を取りにいかせる(GitHub API) ---- */
+const GH_WORKFLOW = 'update-prices.yml';  /* 株価取得ロボットのファイル名 */
+let fetchNowPolling = false;              /* いま見張り中かどうか(二重起動防止) */
+
+/* 「今すぐ取ってくる」ボタンの下に結果を出す小道具 */
+function showFetchNow(kind, msg) {
+  const el = document.getElementById('fetchNowResult');
+  if (!el) return;
+  el.style.display = 'block';
+  el.className = 'sync-result ' + (kind === 'ok' ? 'sync-ok' : kind === 'ng' ? 'sync-ng' : 'sync-run');
+  el.innerHTML = msg;
+}
+
+async function fetchPricesNow() {
+  const btn = document.getElementById('fetchNowBtn');
+  if (fetchNowPolling) return;  // すでに取りにいってる最中なら何もしない
+
+  // 合鍵を用意(入力欄→保存済みの順で探す。同期で一度使ってたら保存されてる)
+  const input = document.getElementById('ghToken');
+  const token = (input && input.value.trim()) || priceCfg.token || '';
+  if (!token) {
+    showFetchNow('ng', '⚠ 合鍵(トークン)がまだ無いで。<br><span style="font-weight:600;font-size:.72rem">下の「銘柄リストの同期」のところに合鍵を貼り付けてから、もう一回押してな。</span>');
+    return;
+  }
+  if (!token.startsWith('github_pat_') && !token.startsWith('ghp_')) {
+    showFetchNow('ng', '⚠ 合鍵の形が違うみたいや。「github_pat_」で始まる文字列を貼り付けてな。');
+    return;
+  }
+  if (input && input.value.trim()) { priceCfg.token = input.value.trim(); savePriceCfg(); }  // 入れてくれてたら保存
+
+  const headers = {
+    'Authorization': 'Bearer ' + token,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+
+  // いま表示してる自動株価の「最終更新時刻」を覚えておく。これが変わったら=新しいのが届いた合図
+  const beforeStamp = (autoPriceInfo && autoPriceInfo.updated) || '';
+
+  btn.disabled = true;
+  fetchNowPolling = true;
+  showFetchNow('run', '⏳ ロボットを起こしてるで…');
+
+  const dispatchUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`;
+
+  try {
+    const res = await fetch(dispatchUrl, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+
+    if (res.status === 204) {
+      // 起動成功。ここから数分、prices.jsonが新しくなるのを見張る
+      showFetchNow('run', '✅ ロボット起こしたで!いま株価を取りにいってる。<br><span style="font-weight:600;font-size:.72rem">2〜3分かかるで。この画面はそのままで待っといてな…</span>');
+      pollForNewPrices(beforeStamp, btn);
+      return;  // ボタンを戻すのは見張り側でやる
+    } else if (res.status === 401) {
+      throw new Error('合鍵が無効か期限切れみたいや。GitHubで作り直して貼り直してな。');
+    } else if (res.status === 403) {
+      throw new Error('合鍵に「Actions」の権限が足りひんみたいや。<br><span style="font-weight:600;font-size:.72rem">GitHubで合鍵の権限に <b>Actions:Read and write</b> を足して、貼り直してな。株価ロボットを動かすのに必要なんや。</span>');
+    } else if (res.status === 404) {
+      throw new Error('株価ロボットが見つからへんかった。ワークフロー名(update-prices.yml)を確認してな。');
+    } else if (res.status === 422) {
+      throw new Error('ロボットがまだ手動起動に対応してへんかも。もう一回試してもあかんかったら教えてな。');
+    } else {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error('ロボットの起動に失敗したで(コード ' + res.status + ')。' + (errData.message ? '(' + esc(errData.message) + ')' : ''));
+    }
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : '不明なエラーが起きたで。';
+    showFetchNow('ng', '❌ ' + msg);
+    btn.disabled = false;
+    fetchNowPolling = false;
+  }
+}
+
+/* prices.jsonが新しくなるまで20秒おきに様子を見る。最大21回(=約7分)まで */
+function pollForNewPrices(beforeStamp, btn) {
+  let tries = 0;
+  const maxTries = 21;
+  const timer = setInterval(async () => {
+    tries++;
+    try {
+      const res = await fetch('prices.json?t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const now = data.updated || '';
+        if (now && now !== beforeStamp) {
+          // 新しいのが届いた!
+          clearInterval(timer);
+          fetchNowPolling = false;
+          await loadAutoPrices();  // 画面に反映
+          const cnt = Object.keys(autoPrices).length;
+          showFetchNow('ok', '🎉 新しい株価が届いたで!(' + cnt + '銘柄)<br><span style="font-weight:600;font-size:.72rem">最終更新:' + esc(now.replace('T', ' ')) + '</span>');
+          if (btn) btn.disabled = false;
+          return;
+        }
+      }
+    } catch (e) { /* 一時的な失敗は無視して次の巡回へ */ }
+
+    if (tries < maxTries) {
+      const sec = tries * 20;
+      const disp = sec < 60 ? sec + '秒' : Math.floor(sec / 60) + '分' + (sec % 60 ? (sec % 60) + '秒' : '');
+      showFetchNow('run', '⏳ 株価を取ってきてる… (' + disp + '経過)<br><span style="font-weight:600;font-size:.72rem">もうちょい待っててな。この画面はそのままでええで。</span>');
+    } else {
+      // 時間切れ
+      clearInterval(timer);
+      fetchNowPolling = false;
+      showFetchNow('ng', '⏰ 時間内に届かへんかったわ。<br><span style="font-weight:600;font-size:.72rem">GitHubが混んでるだけかも。数分待ってから、もう一回押すか、設定を開き直して確認してな。</span>');
+      if (btn) btn.disabled = false;
+    }
+  }, 20000);
 }
 
 function exportData() {
