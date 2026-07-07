@@ -448,7 +448,7 @@
     </div>
 
     <div class="sec">
-      <h2>月別の受取推移</h2>
+      <h2>月別の損益推移</h2>
       <div class="card">
         <div class="chart-head">
           <span style="font-size:.72rem;color:var(--sub);font-weight:700">実現損益+配当+優待</span>
@@ -458,6 +458,42 @@
         <div class="bar-hint">棒をタップすると、その月の明細が見れるで</div>
       </div>
       <div class="cal-detail" id="barDetail" style="display:none"></div>
+    </div>
+
+    <div class="sec">
+      <h2>通算の積み上げ推移</h2>
+      <div class="card">
+        <div class="chart-head">
+          <span style="font-size:.72rem;color:var(--sub);font-weight:700">実現損益+配当+優待の累計(全期間)</span>
+          <span id="cumNow" style="font-size:.9rem;font-weight:800"></span>
+        </div>
+        <svg class="bars" id="cumChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
+        <div class="bar-hint" id="cumHint">投資を始めてからの通算の到達点や</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>総資産の推移</h2>
+      <div class="card">
+        <div class="chart-head">
+          <span style="font-size:.72rem;color:var(--sub);font-weight:700">保有株の評価額(時価)</span>
+          <span id="assetNow" style="font-size:.9rem;font-weight:800"></span>
+        </div>
+        <svg class="bars" id="assetChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
+        <div class="bar-hint" id="assetHint"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>前日比損益の推移</h2>
+      <div class="card">
+        <div class="chart-head">
+          <span style="font-size:.72rem;color:var(--sub);font-weight:700">1日ごとの増減(赤=プラス/緑=マイナス)</span>
+          <span id="dayNow" style="font-size:.9rem;font-weight:800"></span>
+        </div>
+        <svg class="bars" id="dayChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
+        <div class="bar-hint" id="dayHint"></div>
+      </div>
     </div>
 
     <div class="sec">
@@ -777,7 +813,7 @@
 'use strict';
 /* ================= データ ================= */
 const KEY = 'toshi-daicho-v3';
-let state = { trades: [], dividends: [], perks: [], inits: [], curPrices: {}, prefs: { broker: 'SBI証券', account: '特定' } };
+let state = { trades: [], dividends: [], perks: [], inits: [], curPrices: {}, prefs: { broker: 'SBI証券', account: '特定' }, snapshots: [] };
 try {
   const raw = localStorage.getItem(KEY);
   if (raw) {
@@ -786,6 +822,7 @@ try {
       state = p;
       state.dividends ||= []; state.perks ||= []; state.inits ||= [];
       state.curPrices ||= {}; state.prefs ||= { broker: 'SBI証券', account: '特定' };
+      state.snapshots ||= [];  /* 日次記録:{date,asset,dayPnl} 総資産・前日比の推移用 */
     }
   }
 } catch (e) {}
@@ -943,6 +980,9 @@ function renderHome() {
   renderDonut(c);
   renderYears();
   renderBars();
+  renderCumChart();
+  renderAssetChart();
+  renderDayPnlChart();
   renderStocks();
 }
 function setCard(id, v) {
@@ -1065,6 +1105,167 @@ function closeBarMonth() {
   barSelMonth = null;
   const d = document.getElementById('barDetail');
   if (d) d.style.display = 'none';
+}
+
+/* ================= 推移グラフ(通算・総資産・前日比) ================= */
+
+/* 今日の日付 YYYY-MM-DD(スマホのローカル時刻) */
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* その日の「前日比損益(合計)」。前日終値が取れてる銘柄だけ積み上げる。
+   1銘柄も取れてなければ null(=まだ集計できひん) */
+function computeDayPnl() {
+  const { positions } = computePos();
+  let sum = 0, count = 0;
+  positions.forEach(p => {
+    const key = p.code || p.name;
+    const cur = curOf(p);
+    const prev = autoPrev[key];
+    if (cur !== null && prev != null && prev > 0) { sum += (cur - prev) * p.qty; count++; }
+  });
+  return count > 0 ? Math.round(sum) : null;
+}
+
+/* きょうの総資産・前日比を1行だけ記録(同じ日は上書き)。株価読み込み後に呼ぶ。 */
+function recordSnapshot() {
+  const c = calc();
+  if (!(c.evalTotal > 0)) return;              // 保有評価額が無い(保有ゼロ等)なら記録しない
+  const today = todayStr();
+  const snap = { date: today, asset: Math.round(c.evalTotal), dayPnl: computeDayPnl() };
+  state.snapshots ||= [];
+  const i = state.snapshots.findIndex(s => s.date === today);
+  if (i >= 0) state.snapshots[i] = snap; else state.snapshots.push(snap);
+  state.snapshots.sort((a, b) => a.date < b.date ? -1 : 1);
+  save();
+}
+
+/* 通算の積み上げ推移(全期間・折れ線+エリア)。過去の取引記録から即描ける */
+function renderCumChart() {
+  const svg = document.getElementById('cumChart');
+  const nowEl = document.getElementById('cumNow');
+  const hintEl = document.getElementById('cumHint');
+  if (!svg) return;
+  const ev = receiveEvents().filter(r => r.date).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  if (!ev.length) {
+    svg.innerHTML = '';
+    if (nowEl) nowEl.textContent = '';
+    if (hintEl) hintEl.textContent = 'まだ実現損益・配当・優待の記録が無いで';
+    return;
+  }
+  const byMonth = {};
+  ev.forEach(r => { const m = r.date.slice(0, 7); byMonth[m] = (byMonth[m] || 0) + r.amount; });
+  const nowM = todayStr().slice(0, 7);
+  const months = [];
+  let [fy, fm] = ev[0].date.slice(0, 7).split('-').map(Number);
+  const [ny, nm] = nowM.split('-').map(Number);
+  while (fy < ny || (fy === ny && fm <= nm)) {
+    months.push(fy + '-' + String(fm).padStart(2, '0'));
+    fm++; if (fm > 12) { fm = 1; fy++; }
+  }
+  let run = 0;
+  const cum = months.map(m => { run += (byMonth[m] || 0); return { m, v: run }; });
+  const now = cum[cum.length - 1].v;
+  const col = now >= 0 ? 'var(--plus)' : 'var(--minus)';
+  if (nowEl) { nowEl.textContent = signYen(now); nowEl.style.color = col; }
+
+  const W = 340, H = 150, padB = 18, padT = 14, padL = 6, padR = 6;
+  const vals = cum.map(c => c.v);
+  const maxV = Math.max(...vals, 0), minV = Math.min(...vals, 0);
+  const range = (maxV - minV) || 1;
+  const n = cum.length;
+  const xOf = i => padL + (n === 1 ? (W - padL - padR) / 2 : i * (W - padL - padR) / (n - 1));
+  const yOf = v => padT + (maxV - v) / range * (H - padT - padB);
+  const zeroY = yOf(0);
+  let line = '';
+  cum.forEach((c, i) => { line += (i === 0 ? 'M' : 'L') + xOf(i).toFixed(1) + ' ' + yOf(c.v).toFixed(1) + ' '; });
+  const area = line + 'L' + xOf(n - 1).toFixed(1) + ' ' + zeroY.toFixed(1) + ' L' + xOf(0).toFixed(1) + ' ' + zeroY.toFixed(1) + ' Z';
+  let html = `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W - padR}" y2="${zeroY.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+  html += `<path d="${area}" fill="${col}" opacity="0.10"/>`;
+  html += `<path d="${line}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (n === 1) html += `<circle cx="${xOf(0).toFixed(1)}" cy="${yOf(cum[0].v).toFixed(1)}" r="3" fill="${col}"/>`;
+  cum.forEach((c, i) => {
+    if (c.m.slice(5) === '01' || i === 0) html += `<text x="${xOf(i).toFixed(1)}" y="${H - 4}" text-anchor="middle" class="bar-lab">${c.m.slice(0, 4)}</text>`;
+  });
+  svg.innerHTML = html;
+  if (hintEl) hintEl.textContent = `${cum[0].m.replace('-', '/')} 〜 現在の通算 ${signYen(now)}`;
+}
+
+/* 総資産の推移(折れ線・snapshots) */
+function renderAssetChart() {
+  const svg = document.getElementById('assetChart');
+  const nowEl = document.getElementById('assetNow');
+  const hintEl = document.getElementById('assetHint');
+  if (!svg) return;
+  const snaps = (state.snapshots || []).filter(s => s.asset != null).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  if (nowEl) { nowEl.textContent = snaps.length ? yen(snaps[snaps.length - 1].asset) : ''; nowEl.style.color = 'var(--navy)'; }
+  if (!snaps.length) {
+    svg.innerHTML = `<text x="170" y="78" text-anchor="middle" class="bar-lab" style="font-size:11px">アプリを開いた日から記録が貯まっていくで</text>`;
+    if (hintEl) hintEl.textContent = 'まだ記録なし。今日の分はこの後、自動で1件目が入るで';
+    return;
+  }
+  const W = 340, H = 150, padB = 18, padT = 14, padL = 6, padR = 6;
+  const vals = snaps.map(s => s.asset);
+  const maxV = Math.max(...vals), minV = Math.min(...vals);
+  const range = (maxV - minV) || Math.abs(maxV) || 1;
+  const n = snaps.length;
+  const xOf = i => padL + (n === 1 ? (W - padL - padR) / 2 : i * (W - padL - padR) / (n - 1));
+  const yOf = v => padT + (maxV - v) / range * (H - padT - padB);
+  const col = 'var(--navy2)';
+  let line = '';
+  snaps.forEach((s, i) => { line += (i === 0 ? 'M' : 'L') + xOf(i).toFixed(1) + ' ' + yOf(s.asset).toFixed(1) + ' '; });
+  const baseY = H - padB;
+  const area = line + 'L' + xOf(n - 1).toFixed(1) + ' ' + baseY + ' L' + xOf(0).toFixed(1) + ' ' + baseY + ' Z';
+  let html = `<path d="${area}" fill="${col}" opacity="0.10"/>`;
+  html += `<path d="${line}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (n === 1) html += `<circle cx="${xOf(0).toFixed(1)}" cy="${yOf(snaps[0].asset).toFixed(1)}" r="3" fill="${col}"/>`;
+  const labIdx = n === 1 ? [0] : [0, n - 1];
+  labIdx.forEach(i => {
+    html += `<text x="${xOf(i).toFixed(1)}" y="${H - 4}" text-anchor="${i === 0 ? 'start' : 'end'}" class="bar-lab">${snaps[i].date.slice(5).replace('-', '/')}</text>`;
+  });
+  svg.innerHTML = html;
+  if (hintEl) hintEl.textContent = n === 1 ? '記録1日目。あすからつながって線になるで' : `${snaps[0].date.replace(/-/g, '/')} 〜 ${snaps[n - 1].date.replace(/-/g, '/')}(${n}日分)`;
+}
+
+/* 前日比損益の推移(棒・snapshots) */
+function renderDayPnlChart() {
+  const svg = document.getElementById('dayChart');
+  const nowEl = document.getElementById('dayNow');
+  const hintEl = document.getElementById('dayHint');
+  if (!svg) return;
+  const snaps = (state.snapshots || []).filter(s => s.dayPnl != null).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  if (nowEl && snaps.length) { const last = snaps[snaps.length - 1].dayPnl; nowEl.textContent = signYen(last); nowEl.style.color = last >= 0 ? 'var(--plus)' : 'var(--minus)'; }
+  else if (nowEl) nowEl.textContent = '';
+  if (!snaps.length) {
+    svg.innerHTML = `<text x="170" y="78" text-anchor="middle" class="bar-lab" style="font-size:11px">前日終値がそろった日から記録が貯まるで</text>`;
+    if (hintEl) hintEl.textContent = 'まだ記録なし。株価の前日終値がそろえば自動で入るで';
+    return;
+  }
+  const W = 340, H = 150, padB = 18, padT = 14, padL = 6, padR = 6;
+  const vals = snaps.map(s => s.dayPnl);
+  const maxV = Math.max(...vals, 0), minV = Math.min(...vals, 0);
+  const range = (maxV - minV) || 1;
+  const n = snaps.length;
+  const zeroY = padT + (maxV / range) * (H - padT - padB);
+  const slot = (W - padL - padR) / n;
+  const bw = Math.min(17, Math.max(3, slot * 0.6));
+  let html = `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W - padR}" y2="${zeroY.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+  snaps.forEach((s, i) => {
+    const v = s.dayPnl;
+    const cx = padL + slot * (i + 0.5);
+    const h = Math.abs(v) / range * (H - padT - padB);
+    const y = v >= 0 ? zeroY - h : zeroY;
+    html += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h, 2).toFixed(1)}" rx="3" fill="${v >= 0 ? 'var(--plus)' : 'var(--minus)'}"/>`;
+  });
+  const labIdx = n === 1 ? [0] : [0, n - 1];
+  labIdx.forEach(i => {
+    const cx = padL + slot * (i + 0.5);
+    html += `<text x="${cx.toFixed(1)}" y="${H - 4}" text-anchor="middle" class="bar-lab">${snaps[i].date.slice(5).replace('-', '/')}</text>`;
+  });
+  svg.innerHTML = html;
+  if (hintEl) hintEl.textContent = `直近${n}日分(赤=プラスの日 / 緑=マイナスの日)`;
 }
 
 /* ================= 保有 ================= */
@@ -2353,6 +2554,7 @@ async function loadAutoPrices() {
       autoTickers = new Set((td && Array.isArray(td.tickers)) ? td.tickers.map(String) : []);
     }
   } catch (e) { /* 読めへんときは前回の内容を保持 */ }
+  recordSnapshot();   // 株価が確定した状態で、きょうの総資産・前日比を1件記録(同じ日は上書き)
   renderAll();
   updatePriceStatusLabel();
 }
