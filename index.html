@@ -371,6 +371,10 @@
   .cal-dtag.real{background:var(--plus)}.cal-dtag.rmin{background:var(--minus)}
   .cal-dtag.div{background:var(--icDiv)}.cal-dtag.perk{background:var(--icPerk)}
   .cal-dnm{flex:1;font-size:.8rem;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-dmid{flex:1;min-width:0}
+  .cal-dmid .nm{font-size:.8rem;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-dmid .dt{font-size:.66rem;color:var(--sub);font-weight:700;margin-top:2px}
+  .bar-hint{text-align:center;font-size:.64rem;color:var(--sub);font-weight:700;margin-top:8px}
   .cal-dval{font-size:.86rem;font-weight:800;white-space:nowrap}
   .cal-dtot{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#F4F7FC}
   .cal-dtot .lbl{font-size:.8rem;color:var(--sub);font-weight:700}
@@ -430,7 +434,9 @@
           <select class="year" id="yearSel"></select>
         </div>
         <svg class="bars" id="barChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
+        <div class="bar-hint">棒をタップすると、その月の明細が見れるで</div>
       </div>
+      <div class="cal-detail" id="barDetail" style="display:none"></div>
     </div>
 
     <div class="sec">
@@ -952,7 +958,7 @@ function renderYears() {
   const sel = document.getElementById('yearSel');
   sel.innerHTML = years.map(y => `<option value="${y}" ${Number(y)===selYear?'selected':''}>${y}年</option>`).join('');
 }
-document.getElementById('yearSel').addEventListener('change', e => { selYear = Number(e.target.value); renderBars(); });
+document.getElementById('yearSel').addEventListener('change', e => { selYear = Number(e.target.value); closeBarMonth(); renderBars(); });
 
 function renderBars() {
   const svg = document.getElementById('barChart');
@@ -980,7 +986,51 @@ function renderBars() {
     }
     html += `<text x="${x+bw/2}" y="${H-4}" text-anchor="middle" class="bar-lab">${i+1}月</text>`;
   });
+  // タップ用の透明な当たり判定(棒が細くても押しやすいよう月ごとの縦帯)
+  months.forEach((v, i) => {
+    if (v === 0) return;
+    const cx = 12 + i * gap;
+    html += `<rect x="${cx}" y="0" width="${gap}" height="${H}" fill="transparent" style="cursor:pointer" onclick="showBarMonth(${i + 1})"><title>${i + 1}月の明細</title></rect>`;
+  });
   svg.innerHTML = html;
+}
+/* 棒タップ → その月の明細(銘柄・項目・金額)を全部出す */
+let barSelMonth = null;
+function showBarMonth(m) {
+  if (barSelMonth === m) { closeBarMonth(); return; }   // 同じ月をもう一回押したら閉じる
+  barSelMonth = m;
+  const { realizedList } = computePos();
+  const prefix = `${selYear}-${calPad(m)}`;
+  const items = [];
+  realizedList.forEach(r => { if ((r.date || '').startsWith(prefix)) items.push({ date: r.date, type: 'real', name: r.name, amount: r.amount }); });
+  state.dividends.forEach(r => { if ((r.date || '').startsWith(prefix)) items.push({ date: r.date, type: 'div', name: r.name, amount: numv(r.amount) }); });
+  state.perks.forEach(r => { if ((r.date || '').startsWith(prefix)) items.push({ date: r.date, type: 'perk', name: r.name, amount: numv(r.amount) }); });
+  items.sort((a, b) => a.date.localeCompare(b.date));
+  const net = items.reduce((s, e) => s + e.amount, 0);
+  const label = { real: '実現損益', div: '配当', perk: '優待' };
+  const rows = items.map(e => {
+    const tagCls = e.type === 'div' ? 'div' : e.type === 'perk' ? 'perk' : (e.amount < 0 ? 'rmin' : 'real');
+    const valTxt = e.type === 'real' ? signYen(e.amount) : '+' + yen(e.amount);
+    const valCls = plClass(e.type === 'real' ? e.amount : 1);
+    const p = e.date.split('-');
+    return `<div class="cal-drow">
+      <span class="cal-dtag ${tagCls}">${label[e.type]}</span>
+      <div class="cal-dmid"><div class="nm">${esc(e.name)}</div><div class="dt">${Number(p[1])}/${Number(p[2])}</div></div>
+      <span class="cal-dval ${valCls}">${valTxt}</span></div>`;
+  }).join('');
+  const detail = document.getElementById('barDetail');
+  detail.innerHTML = `<div class="cal-detail-card">
+    <div class="cal-detail-h"><span>${selYear}年${m}月の明細(${items.length}件)</span>
+      <button class="cal-detail-close" onclick="closeBarMonth()">閉じる ✕</button></div>
+    ${rows || '<div class="cal-empty">この月の記録はありません</div>'}
+    <div class="cal-dtot"><span class="lbl">この月の合計</span><span class="v ${plClass(net)}">${signYen(net)}</span></div></div>`;
+  detail.style.display = 'block';
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function closeBarMonth() {
+  barSelMonth = null;
+  const d = document.getElementById('barDetail');
+  if (d) d.style.display = 'none';
 }
 
 /* ================= 保有 ================= */
