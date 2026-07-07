@@ -312,6 +312,71 @@
   }
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+  /* ===== ハンバーガー & 設定ドロワー ===== */
+  .hamburger{margin-left:auto;align-self:center;border:0;background:none;width:40px;height:40px;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;border-radius:10px}
+  .hamburger span{display:block;width:20px;height:2px;background:var(--navy);border-radius:2px}
+  .hamburger:active{background:var(--line)}
+  .drawer-ov{position:fixed;inset:0;background:rgba(18,43,92,.38);opacity:0;visibility:hidden;transition:.25s;z-index:60}
+  .drawer-ov.open{opacity:1;visibility:visible}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:86%;max-width:420px;background:var(--bg);z-index:70;
+    transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+    display:flex;flex-direction:column;box-shadow:-8px 0 26px rgba(18,43,92,.18)}
+  .drawer.open{transform:translateX(0)}
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;
+    padding:calc(14px + env(safe-area-inset-top)) 18px 12px;background:var(--card);border-bottom:1px solid var(--line)}
+  .drawer-head span{font-size:.98rem;font-weight:800;color:var(--navy);letter-spacing:.04em}
+  .drawer-x{border:0;background:none;font-size:1.15rem;color:var(--sub);width:36px;height:36px;font-family:inherit;border-radius:9px}
+  .drawer-x:active{background:var(--line)}
+  .drawer-body{flex:1;overflow-y:auto;padding:14px 14px calc(24px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+
+  /* ===== 収支カレンダー ===== */
+  .cal-sum{padding:0;overflow:hidden;margin-bottom:14px}
+  .cal-sum-h{padding:14px 16px;font-size:.9rem;font-weight:800;color:var(--navy);border-bottom:1px solid var(--line)}
+  .cal-sum-row{display:flex}
+  .cal-sum-c{flex:1;padding:16px 8px;text-align:center;position:relative}
+  .cal-sum-c + .cal-sum-c::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:1px;background:var(--line)}
+  .cal-sum-t{font-size:.72rem;font-weight:700;color:var(--sub);margin-bottom:6px}
+  .cal-sum-v{font-size:1.02rem;font-weight:800;color:var(--navy);white-space:nowrap}
+  .cal-sum-v.amber{color:var(--icDiv)}
+  .cal-sum-v.pl-plus{color:var(--plus)}.cal-sum-v.pl-minus{color:var(--minus)}
+  .cal-wrap{padding:14px 10px}
+  .cal-nav{display:flex;align-items:center;justify-content:space-between;padding:0 4px 12px}
+  .cal-title{font-size:1rem;font-weight:800;color:var(--ink)}
+  .cal-arrow{border:0;background:none;font-size:1.5rem;color:var(--sub);width:44px;height:40px;font-family:inherit;line-height:1;border-radius:10px}
+  .cal-arrow:active{background:var(--bg)}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .cal-head{padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:4px}
+  .dow{text-align:center;font-size:.74rem;font-weight:800;color:var(--sub);padding:4px 0}
+  .dow.sun{color:var(--plus)}.dow.sat{color:var(--sky)}
+  .cal-cell{min-height:52px;display:flex;flex-direction:column;align-items:center;padding:5px 1px 4px;border-radius:12px;position:relative}
+  .cal-cell.empty{visibility:hidden}
+  .cal-cell.has{background:#F4F7FC}
+  .cal-cell.has:active{background:#E8EEF8}
+  .cal-dnum{font-size:.82rem;font-weight:700;color:var(--ink);line-height:1.2}
+  .cal-dnum.sun{color:var(--plus)}.cal-dnum.sat{color:var(--sky)}
+  .cal-amt{font-size:.62rem;font-weight:800;margin-top:auto;line-height:1.1;text-align:center;letter-spacing:-.02em}
+  .cal-amt.pl-plus{color:var(--plus)}.cal-amt.pl-minus{color:var(--minus)}
+  .cal-cell.today .cal-dnum{background:var(--navy2);color:#fff;border-radius:999px;width:20px;height:20px;display:flex;align-items:center;justify-content:center;margin-bottom:1px}
+  .cal-cell.sel{background:var(--navy)}
+  .cal-cell.sel .cal-dnum,.cal-cell.sel .cal-amt{color:#fff!important}
+  .cal-cell.sel.today .cal-dnum{background:#fff;color:var(--navy)}
+  .cal-detail{margin-top:14px}
+  .cal-detail-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;animation:fade .18s ease}
+  .cal-detail-h{padding:12px 16px;font-size:.88rem;font-weight:800;color:var(--navy);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .cal-detail-close{border:0;background:none;color:var(--sub);font-size:.78rem;font-weight:700;font-family:inherit;padding:4px}
+  .cal-drow{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line)}
+  .cal-drow:last-of-type{border-bottom:0}
+  .cal-dtag{font-size:.62rem;font-weight:800;padding:3px 8px;border-radius:6px;color:#fff;white-space:nowrap}
+  .cal-dtag.real{background:var(--plus)}.cal-dtag.rmin{background:var(--minus)}
+  .cal-dtag.div{background:var(--icDiv)}.cal-dtag.perk{background:var(--icPerk)}
+  .cal-dnm{flex:1;font-size:.8rem;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal-dval{font-size:.86rem;font-weight:800;white-space:nowrap}
+  .cal-dtot{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#F4F7FC}
+  .cal-dtot .lbl{font-size:.8rem;color:var(--sub);font-weight:700}
+  .cal-dtot .v{font-size:1rem;font-weight:800}
+  .cal-empty{text-align:center;color:var(--sub);font-size:.78rem;font-weight:700;padding:26px 12px}
+
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -320,6 +385,7 @@
 <header class="app">
   <h1>投資台帳</h1>
   <span class="date" id="todayLabel"></span>
+  <button class="hamburger" id="hamburger" onclick="openSettings()" aria-label="メニュー"><span></span><span></span><span></span></button>
 </header>
 
 <main>
@@ -582,8 +648,34 @@
     </div>
   </section>
 
-  <!-- ============ 設定 ============ -->
-  <section class="view" id="view-set">
+  <!-- ============ 収支カレンダー ============ -->
+  <section class="view" id="view-cal">
+    <div class="card cal-sum">
+      <div class="cal-sum-h">📊 月間サマリー</div>
+      <div class="cal-sum-row">
+        <div class="cal-sum-c"><div class="cal-sum-t">実現損益</div><div class="cal-sum-v" id="calSumReal">—</div></div>
+        <div class="cal-sum-c"><div class="cal-sum-t">配当金</div><div class="cal-sum-v amber" id="calSumDiv">—</div></div>
+        <div class="cal-sum-c"><div class="cal-sum-t">合計</div><div class="cal-sum-v" id="calSumTot">—</div></div>
+      </div>
+    </div>
+    <div class="card cal-wrap">
+      <div class="cal-nav">
+        <button class="cal-arrow" id="calPrev" aria-label="前の月">‹</button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button class="cal-arrow" id="calNext" aria-label="次の月">›</button>
+      </div>
+      <div class="cal-grid cal-head">
+        <span class="dow sun">日</span><span class="dow">月</span><span class="dow">火</span><span class="dow">水</span><span class="dow">木</span><span class="dow">金</span><span class="dow sat">土</span>
+      </div>
+      <div class="cal-grid" id="calDays"></div>
+    </div>
+    <div class="cal-detail" id="calDetail" style="display:none"></div>
+  </section>
+
+  <!-- ============ 設定(ハンバーガーメニュー) ============ -->
+  <aside class="drawer" id="settingsDrawer" aria-hidden="true">
+    <div class="drawer-head"><span>⚙ 設定</span><button class="drawer-x" onclick="closeSettings()" aria-label="閉じる">✕</button></div>
+    <div class="drawer-body">
     <div class="sec">
       <h2>株価の自動取得</h2>
       <div class="card" style="margin-bottom:10px">
@@ -632,7 +724,9 @@
       </div>
     </div>
     <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.0</p>
-  </section>
+    </div>
+  </aside>
+  <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
 </main>
 
 <!-- bottom nav -->
@@ -645,8 +739,8 @@
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>入力</button>
   <button data-v="hist">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>履歴</button>
-  <button data-v="set">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3m13.8-6.8-1.7 1.7M8.9 15.1l-1.7 1.7m0-9.6 1.7 1.7m6.2 6.2 1.7 1.7"/></svg>設定</button>
+  <button data-v="cal">
+    <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>収支</button>
 </nav>
 
 <div id="toast"></div>
@@ -1807,20 +1901,138 @@ function switchView(v) {
   if (v === 'home') renderHome();
   if (v === 'hold') renderHold();
   if (v === 'hist') renderHist();
-  if (v === 'set') {
-    // 保存済みの合鍵を復元し、株価の最終更新を表示
-    const tk = document.getElementById('ghToken');
-    if (tk && priceCfg.token) tk.value = priceCfg.token;
-    updatePriceStatusLabel();
-    const sr = document.getElementById('syncResult');
-    if (sr && priceCfg.lastSync) {
-      sr.style.display = 'block';
-      sr.className = 'sync-result sync-ok';
-      sr.innerHTML = '前回の同期:' + esc(priceCfg.lastSync);
-    }
-  }
+  if (v === 'cal') renderCalendar();
   window.scrollTo(0, 0);
 }
+
+/* ================= 設定ドロワー(ハンバーガー) ================= */
+function openSettings() {
+  // 保存済みの合鍵を復元し、株価の最終更新を表示
+  const tk = document.getElementById('ghToken');
+  if (tk && priceCfg.token) tk.value = priceCfg.token;
+  updatePriceStatusLabel();
+  const sr = document.getElementById('syncResult');
+  if (sr && priceCfg.lastSync) {
+    sr.style.display = 'block';
+    sr.className = 'sync-result sync-ok';
+    sr.innerHTML = '前回の同期:' + esc(priceCfg.lastSync);
+  }
+  document.getElementById('settingsDrawer').classList.add('open');
+  document.getElementById('drawerOv').classList.add('open');
+  document.getElementById('settingsDrawer').setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+function closeSettings() {
+  document.getElementById('settingsDrawer').classList.remove('open');
+  document.getElementById('drawerOv').classList.remove('open');
+  document.getElementById('settingsDrawer').setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+
+/* ================= 収支カレンダー ================= */
+let calYear = null, calMonth = null;   // month=1〜12
+const calPad = n => String(n).padStart(2, '0');
+/* マス表示用に大きい数字は「万」で圧縮する */
+function calCompact(n) {
+  const s = n < 0 ? '-' : '';
+  const a = Math.abs(n);
+  if (a >= 10000) {
+    const m = Math.round(a / 1000) / 10;
+    return s + (Number.isInteger(m) ? m : m.toFixed(1)) + '万';
+  }
+  return s + a.toLocaleString('ja-JP');
+}
+/* その日ごとのイベント(実現損益・配当・優待)を日付キーで集める */
+function calEventsByDate() {
+  const { realizedList } = computePos();
+  const map = {};
+  const push = (date, type, name, amount) => {
+    if (!date) return;
+    (map[date] ||= []).push({ type, name: name || '(名称なし)', amount });
+  };
+  realizedList.forEach(r => push(r.date, 'real', r.name, r.amount));
+  state.dividends.forEach(r => push(r.date, 'div', r.name, numv(r.amount)));
+  state.perks.forEach(r => push(r.date, 'perk', r.name, numv(r.amount)));
+  return map;
+}
+function renderCalendar() {
+  const now = new Date();
+  if (calYear == null) { calYear = now.getFullYear(); calMonth = now.getMonth() + 1; }
+  const byDate = calEventsByDate();
+  const prefix = `${calYear}-${calPad(calMonth)}-`;
+
+  // 月間サマリー(実現損益 / 配当+優待 / 合計)
+  let mReal = 0, mDiv = 0;
+  Object.keys(byDate).forEach(d => {
+    if (!d.startsWith(prefix)) return;
+    byDate[d].forEach(e => { e.type === 'real' ? (mReal += e.amount) : (mDiv += e.amount); });
+  });
+  const mTot = mReal + mDiv;
+  document.getElementById('calTitle').textContent = `${calYear}年${calMonth}月`;
+  const rEl = document.getElementById('calSumReal');
+  rEl.textContent = signYen(mReal); rEl.className = 'cal-sum-v ' + plClass(mReal);
+  document.getElementById('calSumDiv').textContent = mDiv ? yen(mDiv) : '¥0';
+  const tEl = document.getElementById('calSumTot');
+  tEl.textContent = signYen(mTot); tEl.className = 'cal-sum-v ' + plClass(mTot);
+
+  // カレンダー本体
+  const startDow = new Date(calYear, calMonth - 1, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+  const todayStr = `${now.getFullYear()}-${calPad(now.getMonth() + 1)}-${calPad(now.getDate())}`;
+  let cells = '';
+  for (let i = 0; i < startDow; i++) cells += '<div class="cal-cell empty"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = prefix + calPad(d);
+    const evs = byDate[dateStr];
+    const dow = new Date(calYear, calMonth - 1, d).getDay();
+    const dowCls = dow === 0 ? 'sun' : dow === 6 ? 'sat' : '';
+    let amtHtml = '';
+    if (evs && evs.length) {
+      const net = evs.reduce((s, e) => s + e.amount, 0);
+      amtHtml = `<div class="cal-amt ${plClass(net)}">${calCompact(net)}</div>`;
+    }
+    const cls = ['cal-cell', evs ? 'has' : '', dateStr === todayStr ? 'today' : ''].filter(Boolean).join(' ');
+    const click = evs ? ` onclick="showCalDay('${dateStr}')"` : '';
+    cells += `<div class="${cls}" data-d="${dateStr}"${click}><div class="cal-dnum ${dowCls}">${d}</div>${amtHtml}</div>`;
+  }
+  document.getElementById('calDays').innerHTML = cells;
+  document.getElementById('calDetail').style.display = 'none';
+}
+/* 日付タップ → その日の内訳を開く */
+function showCalDay(dateStr) {
+  const evs = calEventsByDate()[dateStr] || [];
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const net = evs.reduce((s, e) => s + e.amount, 0);
+  const label = { real: '実現損益', div: '配当', perk: '優待' };
+  const rows = evs.map(e => {
+    const tagCls = e.type === 'div' ? 'div' : e.type === 'perk' ? 'perk' : (e.amount < 0 ? 'rmin' : 'real');
+    const valTxt = e.type === 'real' ? signYen(e.amount) : '+' + yen(e.amount);
+    const valCls = plClass(e.type === 'real' ? e.amount : 1);
+    return `<div class="cal-drow">
+      <span class="cal-dtag ${tagCls}">${label[e.type]}</span>
+      <span class="cal-dnm">${esc(e.name)}</span>
+      <span class="cal-dval ${valCls}">${valTxt}</span></div>`;
+  }).join('');
+  const detail = document.getElementById('calDetail');
+  detail.innerHTML = `<div class="cal-detail-card">
+    <div class="cal-detail-h"><span>${y}年${m}月${d}日</span>
+      <button class="cal-detail-close" onclick="closeCalDay()">閉じる ✕</button></div>
+    ${rows || '<div class="cal-empty">この日の記録はありません</div>'}
+    <div class="cal-dtot"><span class="lbl">この日の合計</span><span class="v ${plClass(net)}">${signYen(net)}</span></div></div>`;
+  detail.style.display = 'block';
+  document.querySelectorAll('#calDays .cal-cell').forEach(c => c.classList.toggle('sel', c.dataset.d === dateStr));
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function closeCalDay() {
+  document.getElementById('calDetail').style.display = 'none';
+  document.querySelectorAll('#calDays .cal-cell.sel').forEach(c => c.classList.remove('sel'));
+}
+document.getElementById('calPrev').addEventListener('click', () => {
+  if (--calMonth < 1) { calMonth = 12; calYear--; } renderCalendar();
+});
+document.getElementById('calNext').addEventListener('click', () => {
+  if (++calMonth > 12) { calMonth = 1; calYear++; } renderCalendar();
+});
 document.querySelector('nav.tabs').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.v === 'input') {
