@@ -296,6 +296,10 @@
     padding:8px 10px;font-size:.9rem;font-family:inherit;color:var(--ink);
   }
   .curline input:focus{outline:none;border-color:var(--navy2)}
+  /* 株価入力欄の右端に前日比を寄せて、余ってた空白を活用 */
+  .curline .day-diff{margin-left:auto;margin-top:0}
+  /* 数字と単位(200株 / @175円)を絶対に途中で折り返さへん */
+  .nw{white-space:nowrap}
   .item.pos{flex-wrap:wrap}
   .warnline{font-size:.66rem;font-weight:700;color:var(--amber);margin-top:6px;width:100%}
 
@@ -1548,19 +1552,19 @@ function holdCardHTML(r) {
       <span class="lb">株価</span>
       <input type="number" inputmode="decimal" value="${boxVal}" placeholder="株価を入力"
         onchange="setCurPrice('${esc(key)}', this.value)">
+      ${dayHTML}
     </div>`;
   return `<div class="item pos">
     <div class="ic sell">株</div>
     <div class="mid">
       <div class="nm">${esc(p.name)}${p.code ? ` <span style="font-size:.66rem;color:var(--sub);font-weight:700">${esc(p.code)}</span>` : ''}</div>
-      <div class="dt">${bkTag(p.broker)}<span class="tagmini">${esc(p.account)}</span>${p.qty.toLocaleString()}株 ・ 平均@${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円</div>
+      <div class="dt">${bkTag(p.broker)}<span class="tagmini">${esc(p.account)}</span><span class="nw">${p.qty.toLocaleString()}株</span> ・ <span class="nw">平均@${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円</span></div>
     </div>
     <div>
       <div class="amt">${yen(ev)} ${srcBadge}</div>
       ${pl !== null
         ? `<div class="sub-amt ${plClass(pl)}" style="font-weight:800">${signYen(pl)}(${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)}%)</div>`
         : `<div class="sub-amt">株価未取得</div>`}
-      ${dayHTML}
     </div>
     ${inputHTML}
     ${p.warn ? `<div class="warnline">⚠ 売り株数が記録上の保有を超えとるで。スタート登録や買いの記録を確認してな</div>` : ''}
