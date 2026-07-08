@@ -116,6 +116,9 @@
   .item .mid{flex:1;min-width:0}
   .item .nm{font-size:.88rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .item .dt{font-size:.7rem;color:var(--sub);font-weight:600;margin-top:2px}
+  /* 株数と取得単価をバッジの下の行にまとめて表示(少し濃いめで見やすく) */
+  .item .dt2{font-size:.74rem;color:var(--ink);font-weight:700;margin-top:3px}
+  .item .dt2 .qty{margin-right:8px}
   .item .amt{font-size:.95rem;font-weight:800;text-align:right}
   .item .sub-amt{font-size:.68rem;color:var(--sub);font-weight:600;text-align:right;margin-top:2px}
   .item .sub-amt.pl-plus{color:var(--plus)}.item .sub-amt.pl-minus{color:var(--minus)}.item .sub-amt.pl-zero{color:var(--ink)}
@@ -1558,7 +1561,8 @@ function holdCardHTML(r) {
     <div class="ic sell">株</div>
     <div class="mid">
       <div class="nm">${esc(p.name)}${p.code ? ` <span style="font-size:.66rem;color:var(--sub);font-weight:700">${esc(p.code)}</span>` : ''}</div>
-      <div class="dt">${bkTag(p.broker)}<span class="tagmini">${esc(p.account)}</span><span class="nw">${p.qty.toLocaleString()}株</span> ・ <span class="nw">平均@${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円</span></div>
+      <div class="dt">${bkTag(p.broker)}<span class="tagmini">${esc(p.account)}</span></div>
+      <div class="dt2"><span class="nw qty">${p.qty.toLocaleString()}株</span><span class="nw">@${p.avg.toLocaleString('ja-JP',{maximumFractionDigits:1})}円</span></div>
     </div>
     <div>
       <div class="amt">${yen(ev)} ${srcBadge}</div>
