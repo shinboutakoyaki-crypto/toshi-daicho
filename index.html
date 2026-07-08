@@ -1245,17 +1245,17 @@ function renderDayPnlChart() {
   }
   const W = 340, H = 150, padB = 18, padT = 14, padL = 6, padR = 6;
   const vals = snaps.map(s => s.dayPnl);
-  const maxV = Math.max(...vals, 0), minV = Math.min(...vals, 0);
-  const range = (maxV - minV) || 1;
+  const absMax = Math.max(...vals.map(v => Math.abs(v)), 1);
   const n = snaps.length;
-  const zeroY = padT + (maxV / range) * (H - padT - padB);
+  const halfH = (H - padT - padB) / 2;
+  const zeroY = padT + halfH;
   const slot = (W - padL - padR) / n;
   const bw = Math.min(17, Math.max(3, slot * 0.6));
   let html = `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W - padR}" y2="${zeroY.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
   snaps.forEach((s, i) => {
     const v = s.dayPnl;
     const cx = padL + slot * (i + 0.5);
-    const h = Math.abs(v) / range * (H - padT - padB);
+    const h = Math.abs(v) / absMax * halfH;
     const y = v >= 0 ? zeroY - h : zeroY;
     html += `<rect x="${(cx - bw / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(h, 2).toFixed(1)}" rx="3" fill="${v >= 0 ? 'var(--plus)' : 'var(--minus)'}"/>`;
   });
