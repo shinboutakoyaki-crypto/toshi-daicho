@@ -794,7 +794,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.0 ・ build 2026-07-07 取り逃し対応</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.1 ・ build 2026-07-09 手入力の前回比対応</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -820,7 +820,7 @@
 'use strict';
 /* ================= データ ================= */
 const KEY = 'toshi-daicho-v3';
-let state = { trades: [], dividends: [], perks: [], inits: [], curPrices: {}, prefs: { broker: 'SBI証券', account: '特定' }, snapshots: [] };
+let state = { trades: [], dividends: [], perks: [], inits: [], curPrices: {}, prefs: { broker: 'SBI証券', account: '特定' }, snapshots: [], manualPrev: {} };
 try {
   const raw = localStorage.getItem(KEY);
   if (raw) {
@@ -830,6 +830,7 @@ try {
       state.dividends ||= []; state.perks ||= []; state.inits ||= [];
       state.curPrices ||= {}; state.prefs ||= { broker: 'SBI証券', account: '特定' };
       state.snapshots ||= [];  /* 日次記録:{date,asset,dayPnl} 総資産・前日比の推移用 */
+      state.manualPrev ||= {}; /* 手入力銘柄の前回値メモ:{key:{prev,date}} 自動取得できひん銘柄の前回比用 */
     }
   }
 } catch (e) {}
@@ -1122,7 +1123,32 @@ function todayStr() {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-/* その日の「前日比損益(合計)」。前日終値が取れてる銘柄だけ積み上げる。
+/* 「前の値段」を返す。まず自動の前日終値(prices.json)、無ければ手入力の前回値メモ。
+   戻り値:{prev:数値, src:'auto'|'manual'} または null(どっちも無い) */
+function prevOf(key) {
+  const a = autoPrev[key];
+  if (a != null && a > 0) return { prev: a, src: 'auto' };
+  const m = state.manualPrev && state.manualPrev[key];
+  if (m && numv(m.prev) > 0) return { prev: numv(m.prev), src: 'manual' };
+  return null;
+}
+
+/* 手入力したとき、いままでの値段を「前回値」として記憶する。
+   ・きょう既に記憶済みなら上書きしない(同じ日の打ち直しで前回比が0になるのを防ぐ)
+   ・値を消した/0にしたときは何もしない */
+function rememberManualPrev(key, newVal) {
+  const nv = numv(newVal);
+  if (!(nv > 0)) return;
+  const old = numv(state.curPrices[key]);
+  if (!(old > 0)) return;                 // 前の値段が無い(初回入力)なら記憶できひん
+  state.manualPrev ||= {};
+  const m = state.manualPrev[key];
+  const today = todayStr();
+  if (m && m.date === today) return;      // きょうの分はもう記憶済み
+  state.manualPrev[key] = { prev: old, date: today };
+}
+
+/* その日の「前日比損益(合計)」。前日終値(または手入力の前回値)が取れてる銘柄だけ積み上げる。
    1銘柄も取れてなければ null(=まだ集計できひん) */
 function computeDayPnl() {
   const { positions } = computePos();
@@ -1130,8 +1156,8 @@ function computeDayPnl() {
   positions.forEach(p => {
     const key = p.code || p.name;
     const cur = curOf(p);
-    const prev = autoPrev[key];
-    if (cur !== null && prev != null && prev > 0) { sum += (cur - prev) * p.qty; count++; }
+    const pv = prevOf(key);
+    if (cur !== null && pv) { sum += (cur - pv.prev) * p.qty; count++; }
   });
   return count > 0 ? Math.round(sum) : null;
 }
@@ -1525,19 +1551,20 @@ function holdRows() {
     const pl = cur !== null ? Math.round((cur - p.avg) * p.qty) : null;
     const pct = (cur !== null && p.avg) ? ((cur - p.avg) / p.avg * 100) : null;
     const key = p.code || p.name;
-    const prev = autoPrev[key];
-    let dayAmt = null, dayPct = null;
-    if (cur !== null && prev != null && prev > 0) {
-      dayAmt = Math.round((cur - prev) * p.qty);
-      dayPct = (cur - prev) / prev * 100;
+    const pv = prevOf(key);
+    let dayAmt = null, dayPct = null, daySrc = null;
+    if (cur !== null && pv) {
+      dayAmt = Math.round((cur - pv.prev) * p.qty);
+      dayPct = (cur - pv.prev) / pv.prev * 100;
+      daySrc = pv.src;   // 'manual'なら「前回比」表示に切り替える
     }
-    return { p, info, cur, cost, ev, pl, pct, key, dayAmt, dayPct };
+    return { p, info, cur, cost, ev, pl, pct, key, dayAmt, dayPct, daySrc };
   });
 }
 
 /* 保有カード1枚ぶんのHTML */
 function holdCardHTML(r) {
-  const { p, info, ev, pl, pct, key, dayAmt, dayPct } = r;
+  const { p, info, ev, pl, pct, key, dayAmt, dayPct, daySrc } = r;
   const srcBadge = info.src === 'auto'
     ? `<span class="price-src src-auto">自動</span>`
     : info.src === 'manual'
@@ -1545,8 +1572,9 @@ function holdCardHTML(r) {
       : info.src === 'stale'
         ? `<span class="price-src src-stale">⚠取り逃し</span>`
         : `<span class="price-src src-none">⚠未取得</span>`;
+  const dayLabel = daySrc === 'manual' ? '前回比' : '前日比';  // 手入力の前回値なら正直に「前回比」
   const dayHTML = (dayAmt !== null)
-    ? `<div class="day-diff ${plClass(dayAmt)}"><span class="dl">前日比</span>${signYen(dayAmt)}(${dayPct >= 0 ? '+' : '−'}${Math.abs(dayPct).toFixed(1)}%)</div>`
+    ? `<div class="day-diff ${plClass(dayAmt)}"><span class="dl">${dayLabel}</span>${signYen(dayAmt)}(${dayPct >= 0 ? '+' : '−'}${Math.abs(dayPct).toFixed(1)}%)</div>`
     : `<div class="day-diff na"><span class="dl">前日比</span>—</div>`;
   // 全銘柄で株価の箱を出す。自動銘柄は自動値が最初から入ってる(裏でcurPricesへ同期済み)。
   // 手で書き換えたら、その場ではその値が効く(翌日の自動読み込みでまた自動値に戻る)。
@@ -1677,6 +1705,7 @@ function renderHold() {
   } else initSec.style.display = 'none';
 }
 function setCurPrice(key, val) {
+  rememberManualPrev(key, val);   // 上書き前の値段を「前回値」として記憶(前回比の計算に使う)
   if (val === '' || numv(val) <= 0) delete state.curPrices[key];
   else state.curPrices[key] = numv(val);
   save(); renderHold(); toast('株価を更新したで');
@@ -1928,7 +1957,10 @@ function saveInit() {
   if (!h.name) return toast('銘柄名を入れてや');
   if (h.qty <= 0) return toast('株数を入れてや');
   if (h.avg <= 0) return toast('平均取得単価を入れてや');
-  if (cur !== '' && numv(cur) > 0) state.curPrices[h.code || h.name] = numv(cur);
+  if (cur !== '' && numv(cur) > 0) {
+    rememberManualPrev(h.code || h.name, cur);  // こっちの画面からの手入力でも前回値を記憶
+    state.curPrices[h.code || h.name] = numv(cur);
+  }
   if (editInitId) {
     state.inits = state.inits.map(x => x.id === editInitId ? h : x);
     toast('スタート登録を更新したで');
