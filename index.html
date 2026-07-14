@@ -99,6 +99,7 @@
     padding:6px 10px;font-size:.8rem;font-weight:700;color:var(--navy);font-family:inherit;
   }
   .bars{width:100%;height:150px}
+  .bars.tippable{touch-action:pan-y;-webkit-user-select:none;user-select:none}
   .bar-lab{font-size:9px;fill:var(--sub);font-weight:600}
   .bar-val{font-size:8.5px;fill:var(--navy);font-weight:700}
 
@@ -794,7 +795,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.1 ・ build 2026-07-09 手入力の前回比対応</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.2 ・ build 2026-07-14 グラフ指なぞり表示</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -1184,6 +1185,7 @@ function renderCumChart() {
   const ev = receiveEvents().filter(r => r.date).slice().sort((a, b) => a.date < b.date ? -1 : 1);
   if (!ev.length) {
     svg.innerHTML = '';
+    chartTipData[svg.id] = [];
     if (nowEl) nowEl.textContent = '';
     if (hintEl) hintEl.textContent = 'まだ実現損益・配当・優待の記録が無いで';
     return;
@@ -1223,6 +1225,7 @@ function renderCumChart() {
     if (c.m.slice(5) === '01' || i === 0) html += `<text x="${xOf(i).toFixed(1)}" y="${H - 4}" text-anchor="middle" class="bar-lab">${c.m.slice(0, 4)}</text>`;
   });
   svg.innerHTML = html;
+  setChartTip(svg, cum.map((c, i) => ({ x: xOf(i), y: yOf(c.v), l1: c.m.replace('-', '/'), l2: signYen(c.v) })));
   if (hintEl) hintEl.textContent = `${cum[0].m.replace('-', '/')} 〜 現在の通算 ${signYen(now)}`;
 }
 
@@ -1236,6 +1239,7 @@ function renderAssetChart() {
   if (nowEl) { nowEl.textContent = snaps.length ? yen(snaps[snaps.length - 1].asset) : ''; nowEl.style.color = 'var(--navy)'; }
   if (!snaps.length) {
     svg.innerHTML = `<text x="170" y="78" text-anchor="middle" class="bar-lab" style="font-size:11px">アプリを開いた日から記録が貯まっていくで</text>`;
+    chartTipData[svg.id] = [];
     if (hintEl) hintEl.textContent = 'まだ記録なし。今日の分はこの後、自動で1件目が入るで';
     return;
   }
@@ -1259,6 +1263,7 @@ function renderAssetChart() {
     html += `<text x="${xOf(i).toFixed(1)}" y="${H - 4}" text-anchor="${i === 0 ? 'start' : 'end'}" class="bar-lab">${snaps[i].date.slice(5).replace('-', '/')}</text>`;
   });
   svg.innerHTML = html;
+  setChartTip(svg, snaps.map((s, i) => ({ x: xOf(i), y: yOf(s.asset), l1: s.date.replace(/-/g, '/'), l2: yen(s.asset) })));
   if (hintEl) hintEl.textContent = n === 1 ? '記録1日目。あすからつながって線になるで' : `${snaps[0].date.replace(/-/g, '/')} 〜 ${snaps[n - 1].date.replace(/-/g, '/')}(${n}日分)`;
 }
 
@@ -1273,6 +1278,7 @@ function renderDayPnlChart() {
   else if (nowEl) nowEl.textContent = '';
   if (!snaps.length) {
     svg.innerHTML = `<text x="170" y="78" text-anchor="middle" class="bar-lab" style="font-size:11px">前日終値がそろった日から記録が貯まるで</text>`;
+    chartTipData[svg.id] = [];
     if (hintEl) hintEl.textContent = 'まだ記録なし。株価の前日終値がそろえば自動で入るで';
     return;
   }
@@ -1298,7 +1304,67 @@ function renderDayPnlChart() {
     html += `<text x="${cx.toFixed(1)}" y="${H - 4}" text-anchor="middle" class="bar-lab">${snaps[i].date.slice(5).replace('-', '/')}</text>`;
   });
   svg.innerHTML = html;
+  setChartTip(svg, snaps.map((s, i) => {
+    const v = s.dayPnl;
+    const h = Math.abs(v) / absMax * halfH;
+    return { x: padL + slot * (i + 0.5), y: v >= 0 ? zeroY - h : zeroY + h, l1: s.date.replace(/-/g, '/'), l2: signYen(v) };
+  }));
   if (hintEl) hintEl.textContent = `直近${n}日分(赤=プラスの日 / 緑=マイナスの日)`;
+}
+
+/* ===== グラフ指なぞり表示(累計・総資産・前日比) ===== */
+const chartTipData = {};
+
+function setChartTip(svg, points) {
+  chartTipData[svg.id] = points;
+  svg.classList.add('tippable');
+  if (svg.dataset.tipBound) return;
+  svg.dataset.tipBound = '1';
+  const move = e => {
+    const pts = chartTipData[svg.id];
+    if (!pts || !pts.length) return;
+    const rect = svg.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * 340 / rect.width;
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.abs(pts[i].x - x);
+      if (d < bd) { bd = d; best = i; }
+    }
+    drawChartTip(svg, pts[best]);
+  };
+  svg.addEventListener('pointerdown', e => {
+    try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+    move(e);
+  });
+  svg.addEventListener('pointermove', e => {
+    if (e.pointerType === 'mouse' || e.buttons) move(e);
+  });
+  svg.addEventListener('pointerup', () => clearChartTip(svg));
+  svg.addEventListener('pointercancel', () => clearChartTip(svg));
+  svg.addEventListener('pointerleave', () => clearChartTip(svg));
+}
+
+function drawChartTip(svg, p) {
+  clearChartTip(svg);
+  const W = 340, H = 150;
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.setAttribute('class', 'tipG');
+  g.style.pointerEvents = 'none';
+  const bw = Math.max(p.l1.length * 5.4, p.l2.length * 6.6) + 16;
+  const bh = 27;
+  const bx = Math.min(Math.max(p.x - bw / 2, 2), W - bw - 2);
+  let inner = `<line x1="${p.x.toFixed(1)}" y1="${bh + 5}" x2="${p.x.toFixed(1)}" y2="${H - 18}" stroke="#8A94A8" stroke-width="1"/>`;
+  if (p.y != null) inner += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.4" fill="#fff" stroke="#2B3446" stroke-width="2"/>`;
+  inner += `<rect x="${bx.toFixed(1)}" y="2" width="${bw.toFixed(1)}" height="${bh}" rx="6" fill="#2B3446" opacity="0.93"/>`;
+  inner += `<text x="${(bx + bw / 2).toFixed(1)}" y="13" text-anchor="middle" fill="#C9D2E3" font-size="8.5">${p.l1}</text>`;
+  inner += `<text x="${(bx + bw / 2).toFixed(1)}" y="24" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">${p.l2}</text>`;
+  g.innerHTML = inner;
+  svg.appendChild(g);
+}
+
+function clearChartTip(svg) {
+  const old = svg.querySelector('.tipG');
+  if (old) old.remove();
 }
 
 /* ================= 保有 ================= */
