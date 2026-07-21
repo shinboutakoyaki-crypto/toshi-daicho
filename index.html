@@ -795,7 +795,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.2 ・ build 2026-07-14 グラフ指なぞり表示</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.3 ・ build 2026-07-21 休場日の前日比を除外</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -838,7 +838,7 @@ try {
 /* 自動株価(prices.jsonから読む)。手動のcurPricesとは別メモ帳。保存はしない=毎回最新を取り直す */
 let autoPrices = {};
 let autoPrev = {};   /* 前日終値(prices.jsonのprev)。前日比の計算に使う。無ければ空 */
-let autoPriceInfo = { updated: null, loaded: false };
+let autoPriceInfo = { updated: null, loaded: false, dataDate: null };  /* dataDate=自動株価データの最新取引日(YYYY-MM-DD)。休場日判定に使う */
 let autoTickers = new Set();  /* ロボットの担当リスト(tickers.json)。登録済みやのに今回株価が来てへん銘柄=「取り逃し」扱い */
 /* 株価取得の設定(合鍵など)。localStorageに別キーで保存 */
 const PRICE_CFG_KEY = 'toshi-daicho-price-cfg';
@@ -1163,16 +1163,38 @@ function computeDayPnl() {
   return count > 0 ? Math.round(sum) : null;
 }
 
+/* 休場日(土日祝など)の前日比コピーを掃除する。
+   市場が動いてへん日は株価が1円も変わらへんので、直近の「動いた日」と
+   総資産・前日比が完全一致する。そういう日は前日比だけを空にする(総資産は残す)。
+   祝日カレンダーを持たんでも、実データだけで休みの日を見分けられるのが狙い。
+   ※state.snapshotsは日付順に並んでる前提(recordSnapshotでソート済み) */
+function dedupeHolidayDayPnl() {
+  const snaps = state.snapshots || [];
+  let lastReal = null;   // 直近の「株価が動いた日」のスナップ
+  for (const s of snaps) {
+    if (s.dayPnl == null) continue;   // もともと空の日はそのまま
+    if (lastReal && s.asset === lastReal.asset && s.dayPnl === lastReal.dayPnl) {
+      s.dayPnl = null;                // 動いた日のコピー=休場日 → 前日比を空に
+    } else {
+      lastReal = s;                   // これは実際に動いた日
+    }
+  }
+}
+
 /* きょうの総資産・前日比を1行だけ記録(同じ日は上書き)。株価読み込み後に呼ぶ。 */
 function recordSnapshot() {
   const c = calc();
   if (!(c.evalTotal > 0)) return;              // 保有評価額が無い(保有ゼロ等)なら記録しない
   const today = todayStr();
-  const snap = { date: today, asset: Math.round(c.evalTotal), dayPnl: computeDayPnl() };
+  // きょうぶんの新しい株価が来てるか?(自動株価の最新取引日が今日なら稼働日)
+  // 来てへん=休場日 or まだロボットが動く前 → 前日比は空にする(前営業日の値をコピーせえへん)
+  const fresh = autoPriceInfo.loaded && autoPriceInfo.dataDate === today;
+  const snap = { date: today, asset: Math.round(c.evalTotal), dayPnl: fresh ? computeDayPnl() : null };
   state.snapshots ||= [];
   const i = state.snapshots.findIndex(s => s.date === today);
   if (i >= 0) state.snapshots[i] = snap; else state.snapshots.push(snap);
   state.snapshots.sort((a, b) => a.date < b.date ? -1 : 1);
+  dedupeHolidayDayPnl();   // 過去に溜まった休場日コピーの掃除(保険。冪等)
   save();
 }
 
@@ -2626,15 +2648,18 @@ async function loadAutoPrices() {
     const next = {};
     const nextPrev = {};
     const prices = data.prices || {};
+    let maxDate = null;   // 取れた株価のうち一番新しい取引日。休場日判定に使う
     for (const code in prices) {
       const v = prices[code] && prices[code].close;
       if (v != null && !isNaN(Number(v))) next[code] = Number(v);
       const pv = prices[code] && prices[code].prev;
       if (pv != null && !isNaN(Number(pv))) nextPrev[code] = Number(pv);
+      const d = prices[code] && prices[code].date;
+      if (d && (!maxDate || d > maxDate)) maxDate = d;
     }
     autoPrices = next;
     autoPrev = nextPrev;
-    autoPriceInfo = { updated: data.updated || null, loaded: true };
+    autoPriceInfo = { updated: data.updated || null, loaded: true, dataDate: maxDate };
     // 方式X:自動で取れた銘柄は、手動欄(curPrices)にも同じ値を書き込んで表示を揃える。
     // 自動で取れなかった銘柄の手動値には触れない(せっかく手入力した値を消さないため)。
     let changed = false;
@@ -2649,7 +2674,7 @@ async function loadAutoPrices() {
     // prices.jsonがまだ無い/読めない場合は自動株価なしで続行(手動値は生きる)
     autoPrices = {};
     autoPrev = {};
-    autoPriceInfo = { updated: null, loaded: false };
+    autoPriceInfo = { updated: null, loaded: false, dataDate: null };
   }
   // ロボットの担当リスト(tickers.json)も読む。「登録済みやのに今回取れてへん銘柄」を見分けるのに使う。
   // 読めへんときはそのまま(空)にして、誤って⚠を出さない=安全側に倒す。
