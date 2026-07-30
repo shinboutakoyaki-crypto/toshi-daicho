@@ -823,7 +823,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.4 ・ build 2026-07-30 株式分割に対応</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.5 ・ build 2026-07-30 株式分割に対応(前日比の補正つき)</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -959,13 +959,7 @@ function computePos(excludeTradeId, excludeSplitId) {
 }
 /* 株価を返す。手動欄(curPrices)を先に見る=手打ちがあればその場で効く。無ければ自動(prices.json)。無ければnull。
    ※自動読み込み時にcurPricesへ自動値をコピーしてるので、普段はcurPrices=自動値。手で書き換えたときだけ差が出る */
-function curOf(p) {
-  const key = p.code || p.name;
-  const c = state.curPrices[key];
-  if (c != null && numv(c) > 0) return numv(c);
-  const a = autoPrices[key];
-  return (a != null && numv(a) > 0) ? numv(a) : null;
-}
+function curOf(p) { return curOfKey(p.code || p.name); }
 /* 株価の出所を返す。
    auto  = 今回ロボットがちゃんと取れた(新しい)
    manual= ロボット管理外の手入力(コード無し等)、または自動値を手で書き換えたもの
@@ -1182,10 +1176,43 @@ function todayStr() {
    戻り値:{prev:数値, src:'auto'|'manual'} または null(どっちも無い) */
 function prevOf(key) {
   const a = autoPrev[key];
-  if (a != null && a > 0) return { prev: a, src: 'auto' };
+  if (a != null && a > 0) return { prev: splitAdjPrev(key, numv(a)), src: 'auto' };
   const m = state.manualPrev && state.manualPrev[key];
-  if (m && numv(m.prev) > 0) return { prev: numv(m.prev), src: 'manual' };
+  if (m && numv(m.prev) > 0) return { prev: splitAdjPrev(key, numv(m.prev)), src: 'manual' };
   return null;
+}
+
+/* 銘柄コード(または銘柄名)から、いまの株価を返す。curOf()の「キーだけ版」 */
+function curOfKey(key) {
+  const c = state.curPrices[key];
+  if (c != null && numv(c) > 0) return numv(c);
+  const a = autoPrices[key];
+  return (a != null && numv(a) > 0) ? numv(a) : null;
+}
+
+/* 株式分割の日は「前日終値」だけが分割前の値のまま残ることがある。
+   (例)8309が1→4に分割した日: いまの株価1,672円 / 前日終値6,842円 → そのまま比べると-75%の大暴落に見える
+   そこで、分割を記録してある銘柄は前日終値を比率で割ってから比べる。
+   ただし翌日以降は前日終値も分割後の値に入れ替わるので、割ってしまうと今度は逆にズレる。
+   そこで「前日終値 ÷ いまの株価」が、分割比率と1のどっちに近いかで自動判定する。
+   ・比率に近い → まだ分割前の値なので割る
+   ・1に近い   → もう入れ替わってるので何もせえへん
+   これで、いつアプリを開いても二重に補正されることはないで。 */
+function splitAdjPrev(key, prev) {
+  const sps = (state.splits || []).filter(sp => (sp.code || sp.name) === key && numv(sp.ratio) > 0 && numv(sp.ratio) !== 1);
+  if (!sps.length) return prev;
+  const cur = curOfKey(key);
+  if (!(cur > 0) || !(prev > 0)) return prev;
+  let out = prev;
+  /* 分割は新しい順に見る(直近の分割ほど、前日終値に残ってる可能性が高い) */
+  sps.slice().sort((a, b) => a.date < b.date ? 1 : -1).forEach(sp => {
+    const r = numv(sp.ratio);
+    const obs = out / cur;                       // 実際に観測されてる「前日終値/いまの株価」
+    const dR = Math.abs(Math.log(obs / r));      // 分割比率にどれだけ近いか
+    const d1 = Math.abs(Math.log(obs));          // 1(=補正済み)にどれだけ近いか
+    if (dR < d1) out = out / r;
+  });
+  return out;
 }
 
 /* 手入力したとき、いままでの値段を「前回値」として記憶する。
