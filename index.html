@@ -367,6 +367,7 @@
   .cal-title{font-size:1rem;font-weight:800;color:var(--ink)}
   .cal-arrow{border:0;background:none;font-size:1.5rem;color:var(--sub);width:44px;height:40px;font-family:inherit;line-height:1;border-radius:10px}
   .cal-arrow:active{background:var(--bg)}
+  .cal-arrow:disabled{opacity:.22}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
   .cal-head{padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:4px}
   .dow{text-align:center;font-size:.74rem;font-weight:800;color:var(--sub);padding:4px 0}
@@ -502,6 +503,23 @@
         </div>
         <svg class="bars" id="dayChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
         <div class="bar-hint" id="dayHint"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>月間の積み上げ損益</h2>
+      <div class="card">
+        <div class="cal-nav" style="padding:0 0 10px">
+          <button class="cal-arrow" id="mcumPrev" aria-label="前の月">‹</button>
+          <div class="cal-title" id="mcumTitle">—</div>
+          <button class="cal-arrow" id="mcumNext" aria-label="次の月">›</button>
+        </div>
+        <div class="chart-head">
+          <span style="font-size:.72rem;color:var(--sub);font-weight:700">月初からの積み上げ</span>
+          <span id="mcumNow" style="font-size:.9rem;font-weight:800"></span>
+        </div>
+        <svg class="bars" id="mcumChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
+        <div class="bar-hint" id="mcumHint"></div>
       </div>
     </div>
 
@@ -823,7 +841,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.5 ・ build 2026-07-30 株式分割に対応(前日比の補正つき)</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.6 ・ build 2026-08-11 月間の積み上げ損益グラフを追加</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -1040,6 +1058,7 @@ function renderHome() {
   renderCumChart();
   renderAssetChart();
   renderDayPnlChart();
+  renderMonthCumChart();
   renderStocks();
 }
 function setCard(id, v) {
@@ -1413,6 +1432,92 @@ function renderDayPnlChart() {
     return { x: padL + slot * (i + 0.5), y: v >= 0 ? zeroY - h : zeroY + h, l1: s.date.replace(/-/g, '/'), l2: signYen(v) };
   }));
   if (hintEl) hintEl.textContent = `直近${n}日分(赤=プラスの日 / 緑=マイナスの日)`;
+}
+
+/* 月間の積み上げ損益(折れ線・月初を0スタート) */
+let mcumY = null, mcumM = null;   // month=1〜12
+
+function mcumPad(n) { return String(n).padStart(2, '0'); }
+
+function mcumAvailMonths() {
+  const set = new Set((state.snapshots || []).filter(s => s.dayPnl != null).map(s => s.date.slice(0, 7)));
+  return [...set].sort();
+}
+
+function renderMonthCumChart() {
+  const svg = document.getElementById('mcumChart');
+  if (!svg) return;
+  const nowEl = document.getElementById('mcumNow');
+  const hintEl = document.getElementById('mcumHint');
+  const titleEl = document.getElementById('mcumTitle');
+  const now = new Date();
+  if (mcumY == null) { mcumY = now.getFullYear(); mcumM = now.getMonth() + 1; }
+  const prefix = `${mcumY}-${mcumPad(mcumM)}`;
+  if (titleEl) titleEl.textContent = `${mcumY}年${mcumM}月`;
+
+  const months = mcumAvailMonths();
+  const prevBtn = document.getElementById('mcumPrev');
+  const nextBtn = document.getElementById('mcumNext');
+  if (prevBtn) prevBtn.disabled = !months.some(m => m < prefix);
+  if (nextBtn) nextBtn.disabled = !months.some(m => m > prefix);
+
+  const snaps = (state.snapshots || [])
+    .filter(s => s.dayPnl != null && s.date.slice(0, 7) === prefix)
+    .slice().sort((a, b) => a.date < b.date ? -1 : 1);
+
+  if (!snaps.length) {
+    if (nowEl) nowEl.textContent = '';
+    svg.innerHTML = `<text x="170" y="78" text-anchor="middle" class="bar-lab" style="font-size:11px">この月の記録はまだ無いで</text>`;
+    chartTipData[svg.id] = [];
+    if (hintEl) hintEl.textContent = '前日比の記録がある月だけ表示できるで';
+    return;
+  }
+
+  /* 月初を0として、日々の前日比を足し込んでいく */
+  const pts = [{ date: null, v: 0 }];
+  let run = 0;
+  snaps.forEach(s => { run += s.dayPnl; pts.push({ date: s.date, v: run }); });
+  const total = run;
+
+  if (nowEl) { nowEl.textContent = signYen(total); nowEl.style.color = total >= 0 ? 'var(--plus)' : 'var(--minus)'; }
+
+  const W = 340, H = 150, padB = 18, padT = 14, padL = 6, padR = 6;
+  const vals = pts.map(p => p.v);
+  const maxV = Math.max(...vals, 0), minV = Math.min(...vals, 0);
+  const range = (maxV - minV) || 1;
+  const n = pts.length;
+  const xOf = i => padL + (n === 1 ? (W - padL - padR) / 2 : i * (W - padL - padR) / (n - 1));
+  const yOf = v => padT + (maxV - v) / range * (H - padT - padB);
+  const col = total >= 0 ? 'var(--plus)' : 'var(--minus)';
+  const zeroY = yOf(0);
+
+  let line = '';
+  pts.forEach((p, i) => { line += (i === 0 ? 'M' : 'L') + xOf(i).toFixed(1) + ' ' + yOf(p.v).toFixed(1) + ' '; });
+  const area = line + 'L' + xOf(n - 1).toFixed(1) + ' ' + zeroY.toFixed(1) + ' L' + xOf(0).toFixed(1) + ' ' + zeroY.toFixed(1) + ' Z';
+
+  let html = `<path d="${area}" fill="${col}" opacity="0.12"/>`;
+  html += `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W - padR}" y2="${zeroY.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+  html += `<path d="${line}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  html += `<circle cx="${xOf(n - 1).toFixed(1)}" cy="${yOf(total).toFixed(1)}" r="3.2" fill="${col}"/>`;
+  html += `<text x="${xOf(0).toFixed(1)}" y="${H - 4}" text-anchor="start" class="bar-lab">${mcumM}/1</text>`;
+  if (n > 1) html += `<text x="${xOf(n - 1).toFixed(1)}" y="${H - 4}" text-anchor="end" class="bar-lab">${pts[n - 1].date.slice(5).replace('-', '/')}</text>`;
+  svg.innerHTML = html;
+
+  setChartTip(svg, pts.map((p, i) => ({
+    x: xOf(i), y: yOf(p.v),
+    l1: p.date ? p.date.replace(/-/g, '/') : `${mcumY}/${mcumPad(mcumM)} 月初`,
+    l2: signYen(p.v)
+  })));
+
+  if (hintEl) hintEl.textContent = `${mcumM}月の記録${snaps.length}日分 / 月初からの通算 ${signYen(total)}`;
+}
+
+function mcumShift(diff) {
+  let y = mcumY, m = mcumM + diff;
+  if (m < 1) { m = 12; y--; }
+  if (m > 12) { m = 1; y++; }
+  mcumY = y; mcumM = m;
+  renderMonthCumChart();
 }
 
 /* ===== グラフ指なぞり表示(累計・総資産・前日比) ===== */
@@ -2809,6 +2914,9 @@ function closeCalDay() {
   document.getElementById('calDetail').style.display = 'none';
   document.querySelectorAll('#calDays .cal-cell.sel').forEach(c => c.classList.remove('sel'));
 }
+document.getElementById('mcumPrev').addEventListener('click', () => mcumShift(-1));
+document.getElementById('mcumNext').addEventListener('click', () => mcumShift(1));
+
 document.getElementById('calPrev').addEventListener('click', () => {
   if (--calMonth < 1) { calMonth = 12; calYear--; } renderCalendar();
 });
