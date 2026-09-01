@@ -497,6 +497,11 @@
     <div class="sec">
       <h2>前日比損益の推移</h2>
       <div class="card">
+        <div class="cal-nav" style="padding:0 0 10px">
+          <button class="cal-arrow" id="mcumPrev" aria-label="前の月">‹</button>
+          <div class="cal-title" id="mcumTitle">—</div>
+          <button class="cal-arrow" id="mcumNext" aria-label="次の月">›</button>
+        </div>
         <div class="chart-head">
           <span style="font-size:.72rem;color:var(--sub);font-weight:700">1日ごとの増減(赤=プラス/緑=マイナス)</span>
           <span id="dayNow" style="font-size:.9rem;font-weight:800"></span>
@@ -509,10 +514,8 @@
     <div class="sec">
       <h2>月間の積み上げ損益</h2>
       <div class="card">
-        <div class="cal-nav" style="padding:0 0 10px">
-          <button class="cal-arrow" id="mcumPrev" aria-label="前の月">‹</button>
-          <div class="cal-title" id="mcumTitle">—</div>
-          <button class="cal-arrow" id="mcumNext" aria-label="次の月">›</button>
+        <div class="cal-nav" style="padding:0 0 10px;justify-content:center">
+          <div class="cal-title" id="mcumTitle2">—</div>
         </div>
         <div class="chart-head">
           <span style="font-size:.72rem;color:var(--sub);font-weight:700">月初からの積み上げ</span>
@@ -841,7 +844,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.6 ・ build 2026-08-11 月間の積み上げ損益グラフを追加</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.7 ・ build 2026-09-01 前日比損益グラフを月単位に変更(月切替を共有)</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -1395,13 +1398,18 @@ function renderDayPnlChart() {
   const nowEl = document.getElementById('dayNow');
   const hintEl = document.getElementById('dayHint');
   if (!svg) return;
-  const snaps = (state.snapshots || []).filter(s => s.dayPnl != null).slice().sort((a, b) => a.date < b.date ? -1 : 1);
+  mcumEnsure();
+  const prefix = `${mcumY}-${mcumPad(mcumM)}`;
+  const snaps = (state.snapshots || [])
+    .filter(s => s.dayPnl != null && s.date.slice(0, 7) === prefix)
+    .slice().sort((a, b) => a.date < b.date ? -1 : 1);
   if (nowEl && snaps.length) { const last = snaps[snaps.length - 1].dayPnl; nowEl.textContent = signYen(last); nowEl.style.color = last >= 0 ? 'var(--plus)' : 'var(--minus)'; }
   else if (nowEl) nowEl.textContent = '';
   if (!snaps.length) {
-    svg.innerHTML = `<text x="170" y="78" text-anchor="middle" class="bar-lab" style="font-size:11px">前日終値がそろった日から記録が貯まるで</text>`;
+    const any = (state.snapshots || []).some(s => s.dayPnl != null);
+    svg.innerHTML = `<text x="170" y="78" text-anchor="middle" class="bar-lab" style="font-size:11px">${any ? 'この月の記録はまだ無いで' : '前日終値がそろった日から記録が貯まるで'}</text>`;
     chartTipData[svg.id] = [];
-    if (hintEl) hintEl.textContent = 'まだ記録なし。株価の前日終値がそろえば自動で入るで';
+    if (hintEl) hintEl.textContent = any ? '前日比の記録がある月だけ表示できるで' : 'まだ記録なし。株価の前日終値がそろえば自動で入るで';
     return;
   }
   const W = 340, H = 150, padB = 18, padT = 14, padL = 6, padR = 6;
@@ -1431,13 +1439,34 @@ function renderDayPnlChart() {
     const h = Math.abs(v) / absMax * halfH;
     return { x: padL + slot * (i + 0.5), y: v >= 0 ? zeroY - h : zeroY + h, l1: s.date.replace(/-/g, '/'), l2: signYen(v) };
   }));
-  if (hintEl) hintEl.textContent = `直近${n}日分(赤=プラスの日 / 緑=マイナスの日)`;
+  if (hintEl) hintEl.textContent = `${mcumM}月の記録${n}日分(赤=プラスの日 / 緑=マイナスの日)`;
 }
 
 /* 月間の積み上げ損益(折れ線・月初を0スタート) */
 let mcumY = null, mcumM = null;   // month=1〜12
 
 function mcumPad(n) { return String(n).padStart(2, '0'); }
+
+/* 表示中の月を確定する(前日比グラフ・積み上げグラフで共有) */
+function mcumEnsure() {
+  if (mcumY == null) { const now = new Date(); mcumY = now.getFullYear(); mcumM = now.getMonth() + 1; }
+}
+
+/* 月切替ナビ(前日比カードの上)とタイトル表示を更新 */
+function mcumSyncNav() {
+  mcumEnsure();
+  const prefix = `${mcumY}-${mcumPad(mcumM)}`;
+  const label = `${mcumY}年${mcumM}月`;
+  const t1 = document.getElementById('mcumTitle');
+  const t2 = document.getElementById('mcumTitle2');
+  if (t1) t1.textContent = label;
+  if (t2) t2.textContent = label;
+  const months = mcumAvailMonths();
+  const prevBtn = document.getElementById('mcumPrev');
+  const nextBtn = document.getElementById('mcumNext');
+  if (prevBtn) prevBtn.disabled = !months.some(m => m < prefix);
+  if (nextBtn) nextBtn.disabled = !months.some(m => m > prefix);
+}
 
 function mcumAvailMonths() {
   const set = new Set((state.snapshots || []).filter(s => s.dayPnl != null).map(s => s.date.slice(0, 7)));
@@ -1449,17 +1478,8 @@ function renderMonthCumChart() {
   if (!svg) return;
   const nowEl = document.getElementById('mcumNow');
   const hintEl = document.getElementById('mcumHint');
-  const titleEl = document.getElementById('mcumTitle');
-  const now = new Date();
-  if (mcumY == null) { mcumY = now.getFullYear(); mcumM = now.getMonth() + 1; }
+  mcumSyncNav();
   const prefix = `${mcumY}-${mcumPad(mcumM)}`;
-  if (titleEl) titleEl.textContent = `${mcumY}年${mcumM}月`;
-
-  const months = mcumAvailMonths();
-  const prevBtn = document.getElementById('mcumPrev');
-  const nextBtn = document.getElementById('mcumNext');
-  if (prevBtn) prevBtn.disabled = !months.some(m => m < prefix);
-  if (nextBtn) nextBtn.disabled = !months.some(m => m > prefix);
 
   const snaps = (state.snapshots || [])
     .filter(s => s.dayPnl != null && s.date.slice(0, 7) === prefix)
@@ -1517,6 +1537,7 @@ function mcumShift(diff) {
   if (m < 1) { m = 12; y--; }
   if (m > 12) { m = 1; y++; }
   mcumY = y; mcumM = m;
+  renderDayPnlChart();
   renderMonthCumChart();
 }
 
