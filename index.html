@@ -413,6 +413,34 @@
   .cal-empty{text-align:center;color:var(--sub);font-size:.78rem;font-weight:700;padding:26px 12px}
 
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  /* ============ 保有銘柄のPDF出力(印刷用シート) ============ */
+  /* 画面上では常に隠しておいて、印刷(PDF保存)のときだけ出す */
+  #pdfSheet{display:none}
+  #pdfSheet .ps-head{margin-bottom:10mm}
+  #pdfSheet .ps-title{font-size:15pt;font-weight:800;letter-spacing:.04em}
+  #pdfSheet .ps-date{font-size:9pt;color:#555;font-weight:700;margin-top:2mm}
+  #pdfSheet table{width:100%;border-collapse:collapse;font-size:9.5pt}
+  #pdfSheet thead th{
+    border-bottom:1.6pt solid #222;padding:2.4mm 1.6mm;
+    font-size:8.6pt;font-weight:800;color:#222;text-align:left;white-space:nowrap}
+  #pdfSheet tbody td{border-bottom:.4pt solid #BBB;padding:2.4mm 1.6mm;vertical-align:top}
+  #pdfSheet .c-code{width:15mm;white-space:nowrap;font-weight:700}
+  #pdfSheet .c-qty,#pdfSheet .c-avg{text-align:right;white-space:nowrap}
+  #pdfSheet .c-qty{width:22mm}
+  #pdfSheet .c-avg{width:28mm}
+  #pdfSheet tbody tr{page-break-inside:avoid;break-inside:avoid}
+  #pdfSheet thead{display:table-header-group}
+  #pdfSheet .ps-foot{margin-top:6mm;font-size:8pt;color:#666;font-weight:700;line-height:1.7}
+  #pdfSheet .ps-empty{padding:20mm 0;text-align:center;font-size:10pt;color:#666;font-weight:700}
+
+  @media print{
+    @page{size:A4 portrait;margin:14mm 12mm}
+    html,body{background:#fff!important;padding:0!important;min-height:0!important}
+    /* body直下のアプリ本体を全部隠して、印刷シートだけ見せる */
+    body>header.app,body>main,body>nav.tabs,body>#toast{display:none!important}
+    #pdfSheet{display:block!important;color:#111}
+  }
 </style>
 </head>
 <body>
@@ -829,6 +857,15 @@
       </div>
     </div>
     <div class="sec">
+      <h2>保有銘柄の書き出し</h2>
+      <div class="card">
+        <p style="font-size:.78rem;color:var(--sub);font-weight:600;line-height:1.7;margin-bottom:12px">
+          いま持ってる銘柄の一覧を、紙やPDFで残せるで。ボタンを押したら印刷画面が出るから、そこで「PDF」を選んで保存してな。</p>
+        <button class="btn line" style="margin-top:0" onclick="printHoldings()">📄 保有銘柄をPDF出力</button>
+        <p class="hint" style="margin-top:10px">※銘柄コード順・楽天もSBIもまとめて1行で出るで。売却済みの銘柄は載らへん。</p>
+      </div>
+    </div>
+    <div class="sec">
       <h2>損益計算のルール</h2>
       <div class="card">
         <p style="font-size:.74rem;color:var(--sub);font-weight:600;line-height:1.9">
@@ -844,7 +881,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.7 ・ build 2026-09-01 前日比損益グラフを月単位に変更(月切替を共有)</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.8 ・ build 2026-09-13 保有銘柄のPDF出力(印刷)を追加</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -865,6 +902,9 @@
 </nav>
 
 <div id="toast"></div>
+
+<!-- 保有銘柄PDF出力用のシート(画面には出えへん。印刷のときだけ現れる) -->
+<div id="pdfSheet" aria-hidden="true"></div>
 
 <script>
 'use strict';
@@ -2729,6 +2769,75 @@ function pollForNewPrices(beforeStamp, btn) {
       if (btn) btn.disabled = false;
     }
   }, 20000);
+}
+
+/* ================= 保有銘柄のPDF出力(印刷) =================
+   いま保有してる銘柄だけを、銘柄コード順で1枚の表にして印刷する。
+   ・証券会社や口座区分(特定/NISA)をまたいでも、同じ銘柄は1行にまとめる
+   ・平均取得単価は「取得総額 ÷ 合計株数」で算出(口座ごとの単価を株数で加重平均したのと同じ)
+   ・外部ライブラリは使わへん。ブラウザ標準の印刷機能で「PDFとして保存」してもらう      */
+function buildHoldingRows() {
+  const { positions } = computePos();
+  const names = knownNames();
+  const map = new Map();
+  positions.forEach(p => {
+    if (!(p.qty > 0)) return;
+    const key = p.code || p.name;
+    let s = map.get(key);
+    if (!s) { s = { code: p.code || '', name: '', qty: 0, cost: 0 }; map.set(key, s); }
+    const nm = (p.code && names[p.code]) || p.name;
+    if (nm) s.name = nm;
+    s.qty += p.qty;
+    s.cost += p.qty * p.avg;
+  });
+  const arr = [...map.values()];
+  arr.forEach(s => { s.avg = s.qty > 0 ? s.cost / s.qty : 0; });
+  // 銘柄コード昇順(コードが無い銘柄は最後にまわして、銘柄名で並べる)
+  arr.sort((a, b) =>
+    (a.code || 'zzzzz').localeCompare(b.code || 'zzzzz') ||
+    String(a.name).localeCompare(String(b.name), 'ja'));
+  return arr;
+}
+
+function printHoldings() {
+  const rows = buildHoldingRows();
+  const sheet = document.getElementById('pdfSheet');
+  const now = new Date();
+  const stamp = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 時点`;
+  // 株数は整数なら小数点なし、分割で端数が出たときだけ小数を見せる
+  const fmtQty = q => (Math.abs(q - Math.round(q)) < 1e-6)
+    ? Math.round(q).toLocaleString('ja-JP')
+    : q.toLocaleString('ja-JP', { maximumFractionDigits: 4 });
+  const fmtAvg = a => '¥' + a.toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  const body = rows.length
+    ? `<table>
+         <thead><tr>
+           <th class="c-code">コード</th><th>銘柄名</th>
+           <th class="c-qty">保有株数</th><th class="c-avg">平均取得単価</th>
+         </tr></thead>
+         <tbody>${rows.map(r => `<tr>
+           <td class="c-code">${esc(r.code || '—')}</td>
+           <td>${esc(r.name || '(名称未登録)')}</td>
+           <td class="c-qty">${fmtQty(r.qty)}</td>
+           <td class="c-avg">${fmtAvg(r.avg)}</td>
+         </tr>`).join('')}</tbody>
+       </table>
+       <div class="ps-foot">
+         全${rows.length}銘柄 ／ 平均取得単価は手数料込み・取得総額÷保有株数で算出<br>
+         証券会社・口座区分(特定/NISA)をまたぐ同一銘柄は合算して表示しています
+       </div>`
+    : `<div class="ps-empty">保有中の銘柄がありません</div>`;
+
+  sheet.innerHTML = `
+    <div class="ps-head">
+      <div class="ps-title">保有銘柄一覧</div>
+      <div class="ps-date">${esc(stamp)}</div>
+    </div>${body}`;
+
+  // ドロワーが開いたままやと印刷ダイアログの裏で操作しにくいんで閉じとく
+  closeSettings();
+  setTimeout(() => window.print(), 120);
 }
 
 function exportData() {
