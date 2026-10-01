@@ -555,6 +555,23 @@
     </div>
 
     <div class="sec">
+      <h2>年間の積み上げ損益</h2>
+      <div class="card">
+        <div class="cal-nav" style="padding:0 0 10px">
+          <button class="cal-arrow" id="ycumPrev" aria-label="前の年">‹</button>
+          <div class="cal-title" id="ycumTitle">—</div>
+          <button class="cal-arrow" id="ycumNext" aria-label="次の年">›</button>
+        </div>
+        <div class="chart-head">
+          <span style="font-size:.72rem;color:var(--sub);font-weight:700">年初からの積み上げ(1か月ごと)</span>
+          <span id="ycumNow" style="font-size:.9rem;font-weight:800"></span>
+        </div>
+        <svg class="bars" id="ycumChart" viewBox="0 0 340 150" preserveAspectRatio="none"></svg>
+        <div class="bar-hint" id="ycumHint"></div>
+      </div>
+    </div>
+
+    <div class="sec">
       <h2>銘柄別サマリー</h2>
       <div class="stk-grand" id="stkTotal" style="display:none"></div>
       <input type="text" class="stk-search" id="stkSearch" placeholder="コード・銘柄名で絞り込み" autocomplete="off">
@@ -881,7 +898,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.8 ・ build 2026-09-13 保有銘柄のPDF出力(印刷)を追加</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.9 ・ build 2026-10-02 年間の積み上げ損益グラフを追加</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -1102,6 +1119,7 @@ function renderHome() {
   renderAssetChart();
   renderDayPnlChart();
   renderMonthCumChart();
+  renderYearCumChart();
   renderStocks();
 }
 function setCard(id, v) {
@@ -1579,6 +1597,100 @@ function mcumShift(diff) {
   mcumY = y; mcumM = m;
   renderDayPnlChart();
   renderMonthCumChart();
+}
+
+/* 年間の積み上げ損益(折れ線・年初を0スタート・1か月ごと) — 月間とは別に年を切り替える */
+let ycumY = null;
+
+function ycumAvailYears() {
+  const set = new Set((state.snapshots || []).filter(s => s.dayPnl != null).map(s => s.date.slice(0, 4)));
+  return [...set].sort();
+}
+
+function renderYearCumChart() {
+  const svg = document.getElementById('ycumChart');
+  if (!svg) return;
+  const nowEl = document.getElementById('ycumNow');
+  const hintEl = document.getElementById('ycumHint');
+  if (ycumY == null) ycumY = new Date().getFullYear();
+  const ys = String(ycumY);
+
+  const titleEl = document.getElementById('ycumTitle');
+  if (titleEl) titleEl.textContent = `${ycumY}年`;
+  const years = ycumAvailYears();
+  const prevBtn = document.getElementById('ycumPrev');
+  const nextBtn = document.getElementById('ycumNext');
+  if (prevBtn) prevBtn.disabled = !years.some(y => y < ys);
+  if (nextBtn) nextBtn.disabled = !years.some(y => y > ys);
+
+  /* その年の日次損益を月ごとに合計 */
+  const sums = new Array(12).fill(0);
+  const has = new Array(12).fill(false);
+  (state.snapshots || []).forEach(s => {
+    if (s.dayPnl == null || s.date.slice(0, 4) !== ys) return;
+    const m = parseInt(s.date.slice(5, 7), 10) - 1;
+    if (m < 0 || m > 11) return;
+    sums[m] += s.dayPnl; has[m] = true;
+  });
+  const lastIdx = has.lastIndexOf(true);   // 記録がある最後の月(0〜11)
+
+  if (lastIdx < 0) {
+    if (nowEl) nowEl.textContent = '';
+    svg.innerHTML = `<text x="170" y="78" text-anchor="middle" class="bar-lab" style="font-size:11px">この年の記録はまだ無いで</text>`;
+    chartTipData[svg.id] = [];
+    if (hintEl) hintEl.textContent = '前日比の記録がある年だけ表示できるで';
+    return;
+  }
+
+  /* 点0=年初(0円)、点k=k月末までの累計。記録がある最後の月まで線を引く */
+  const pts = [{ k: 0, v: 0 }];
+  let run = 0;
+  for (let m = 0; m <= lastIdx; m++) { run += sums[m]; pts.push({ k: m + 1, v: run, m }); }
+  const total = run;
+  const recMonths = has.filter(Boolean).length;
+
+  if (nowEl) { nowEl.textContent = signYen(total); nowEl.style.color = total >= 0 ? 'var(--plus)' : 'var(--minus)'; }
+
+  const W = 340, H = 150, padB = 18, padT = 14, padL = 10, padR = 10;
+  const vals = pts.map(p => p.v);
+  const maxV = Math.max(...vals, 0), minV = Math.min(...vals, 0);
+  const range = (maxV - minV) || 1;
+  const xOf = k => padL + k * (W - padL - padR) / 12;   // 横軸は常に1〜12月の固定目盛り
+  const yOf = v => padT + (maxV - v) / range * (H - padT - padB);
+  const col = total >= 0 ? 'var(--plus)' : 'var(--minus)';
+  const zeroY = yOf(0);
+  const lastK = pts[pts.length - 1].k;
+
+  let line = '';
+  pts.forEach((p, i) => { line += (i === 0 ? 'M' : 'L') + xOf(p.k).toFixed(1) + ' ' + yOf(p.v).toFixed(1) + ' '; });
+  const area = line + 'L' + xOf(lastK).toFixed(1) + ' ' + zeroY.toFixed(1) + ' L' + xOf(0).toFixed(1) + ' ' + zeroY.toFixed(1) + ' Z';
+
+  let html = `<path d="${area}" fill="${col}" opacity="0.12"/>`;
+  html += `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W - padR}" y2="${zeroY.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>`;
+  html += `<path d="${line}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  pts.forEach((p, i) => {
+    if (i === 0) return;
+    const last = i === pts.length - 1;
+    html += `<circle cx="${xOf(p.k).toFixed(1)}" cy="${yOf(p.v).toFixed(1)}" r="${last ? 3.2 : 2}" fill="${col}"/>`;
+  });
+  for (let k = 1; k <= 12; k++) {
+    html += `<text x="${xOf(k).toFixed(1)}" y="${H - 4}" text-anchor="${k === 12 ? 'end' : 'middle'}" class="bar-lab">${k}</text>`;
+  }
+  svg.innerHTML = html;
+
+  setChartTip(svg, pts.map(p => ({
+    x: xOf(p.k), y: yOf(p.v),
+    l1: p.k === 0 ? `${ycumY}年 年初` : `${ycumY}年${p.k}月末${has[p.m] ? `(当月 ${signYen(sums[p.m])})` : '(記録なし)'}`,
+    l2: signYen(p.v)
+  })));
+
+  if (hintEl) hintEl.textContent = `${ycumY}年の記録${recMonths}か月分 / 年初からの通算 ${signYen(total)}`;
+}
+
+function ycumShift(diff) {
+  if (ycumY == null) ycumY = new Date().getFullYear();
+  ycumY += diff;
+  renderYearCumChart();
 }
 
 /* ===== グラフ指なぞり表示(累計・総資産・前日比) ===== */
@@ -3046,6 +3158,8 @@ function closeCalDay() {
 }
 document.getElementById('mcumPrev').addEventListener('click', () => mcumShift(-1));
 document.getElementById('mcumNext').addEventListener('click', () => mcumShift(1));
+document.getElementById('ycumPrev').addEventListener('click', () => ycumShift(-1));
+document.getElementById('ycumNext').addEventListener('click', () => ycumShift(1));
 
 document.getElementById('calPrev').addEventListener('click', () => {
   if (--calMonth < 1) { calMonth = 12; calYear--; } renderCalendar();
