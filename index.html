@@ -898,7 +898,7 @@
         <button class="btn ghost" style="margin-top:0" onclick="clearAll()">すべてのデータを削除する</button>
       </div>
     </div>
-    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.9 ・ build 2026-10-02 年間の積み上げ損益グラフを追加</p>
+    <p style="text-align:center;font-size:.68rem;color:var(--sub);font-weight:600;margin-top:8px">投資台帳 v3.9.1 ・ build 2026-10-15 14日分の記録を復元</p>
     </div>
   </aside>
   <div class="drawer-ov" id="drawerOv" onclick="closeSettings()"></div>
@@ -3178,6 +3178,47 @@ document.querySelector('nav.tabs').addEventListener('click', e => {
 });
 function renderAll() { renderHome(); renderHold(); renderHist(); }
 
+
+/* ================= 14日分の記録の復元(1回きり) =================
+   2026-10-14はアプリを開き忘れて、積み上げ用の日次記録(snapshots)が抜けた。
+   ロボットは14日に動いてたので、14日夜版のprices.json(終値と前日終値)をここに埋め込んで、
+   14日時点の保有数で「総資産」と「前日比損益」を計算し直して記録する。
+   すでに14日分がちゃんと入ってたら何もしない(何回開いても安全)。 */
+const RESTORE_DATE = '2026-10-14';
+const RESTORE_PRICES = {"1605":[3751.0,3730.0],"167A":[3370.0,3340.0],"1870":[2074.0,2061.0],"1878":[3154.0,3190.0],"2353":[261.0,259.0],"2667":[99.0,99.0],"2721":[100.0,99.0],"2914":[7335.0,7319.0],"2982":[397.0,399.0],"3133":[32.0,33.0],"3242":[543.0,540.0],"3350":[275.0,261.0],"3598":[155.0,155.0],"3607":[345.0,347.0],"402A":[259.0,285.0],"4202":[1476.0,1453.0],"4755":[628.5,635.1],"5401":[649.4,647.0],"546A":[2709.0,2622.0],"5970":[2193.0,2207.0],"7013":[2537.0,2571.5],"7267":[1775.5,1754.5],"7272":[1862.0,1864.0],"7692":[75.0,76.0],"8076":[2025.0,2038.0],"8214":[1709.0,1720.0],"8309":[1678.5,1732.5],"8473":[3061.0,3103.0],"8593":[1312.5,1320.5],"8729":[148.8,148.7],"9432":[172.5,173.3],"9434":[241.8,243.0],"9812":[226.0,248.0]};  /* {コード:[14日終値, 13日終値]} */
+function restoreMissingSnapshot() {
+  const ex = (state.snapshots || []).find(s => s.date === RESTORE_DATE);
+  if (ex && ex.dayPnl != null) return false;            // もう入ってる
+  const savedTrades = state.trades, savedSplits = state.splits;
+  let positions;
+  try {
+    /* 14日までの売買・分割だけで保有数を数える(15日以降の売買は含めない) */
+    state.trades = (savedTrades || []).filter(t => t.date <= RESTORE_DATE);
+    state.splits = (savedSplits || []).filter(sp => sp.date <= RESTORE_DATE);
+    positions = computePos().positions;
+  } finally { state.trades = savedTrades; state.splits = savedSplits; }
+  let asset = 0, pnl = 0, cnt = 0;
+  positions.forEach(p => {
+    const key = p.code || p.name;
+    const r = RESTORE_PRICES[key];
+    if (r) {
+      asset += p.qty * r[0];
+      pnl += (r[0] - r[1]) * p.qty; cnt++;
+    } else {
+      const cur = curOfKey(key);                         // ロボット管理外は今の値で代用(前日比には入れない)
+      asset += p.qty * (cur ?? p.avg);
+    }
+  });
+  if (!(asset > 0) || cnt === 0) return false;
+  const snap = { date: RESTORE_DATE, asset: Math.round(asset), dayPnl: Math.round(pnl) };
+  state.snapshots ||= [];
+  const i = state.snapshots.findIndex(s => s.date === RESTORE_DATE);
+  if (i >= 0) state.snapshots[i] = snap; else state.snapshots.push(snap);
+  state.snapshots.sort((a, b) => a.date < b.date ? -1 : 1);
+  save();
+  return true;
+}
+
 /* ================= 自動株価の取り込み ================= */
 /* 自分のリポジトリのprices.jsonを読む。同一リポジトリ内なのでCORSの問題は起きない。
    キャッシュ回避のため末尾に時刻を付ける */
@@ -3228,6 +3269,7 @@ async function loadAutoPrices() {
     }
   } catch (e) { /* 読めへんときは前回の内容を保持 */ }
   recordSnapshot();   // 株価が確定した状態で、きょうの総資産・前日比を1件記録(同じ日は上書き)
+  try { restoreMissingSnapshot(); } catch (e) { console.error('14日分の復元に失敗', e); }
   renderAll();
   updatePriceStatusLabel();
 }
